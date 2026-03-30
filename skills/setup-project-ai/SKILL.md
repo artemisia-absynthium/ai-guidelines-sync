@@ -102,7 +102,7 @@ New projects created from `apple-project-template` already have all of this.
    - List what was created
    - List what was skipped (already existed)
    - Remind them to:
-     1. Generate a deploy key and add it to the repo (see plugin README for steps)
+     1. Generate a deploy key and add it to the repo (see repo README for steps)
      2. Trigger the workflow manually once via the Actions tab to populate `shared/`
      3. Fill in `local/architecture.md` with project-specific details
 

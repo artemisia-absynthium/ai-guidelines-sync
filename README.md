@@ -1,6 +1,6 @@
 # claude-setup-plugin
 
-A Claude Code plugin providing Swift/visionOS domain rules and a project-setup skill.
+Central source of Swift/visionOS Claude Code rules and project-setup skill.
 
 ## What's inside
 
@@ -23,17 +23,12 @@ intentionally excluded — those are covered by official Claude Code plugins.
 |-------|-------------|
 | `setup-project-ai` | Scaffolds an existing repo with the sync workflow, `shared/`/`local/` structure, and an architecture stub |
 
-## Installation
-
-```
-/plugin install artemisia-absynthium/claude-setup-plugin
-```
+Copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md` to use it.
 
 ## Using rules in a project
 
-Rules are not injected automatically by the plugin — they need to land as committed files
-so teammates without the plugin also benefit. Each project subscribes via a GitHub Actions
-workflow that syncs `rules/` into `.claude/rules/shared/` weekly.
+Rules are synced as committed files so all teammates benefit regardless of their local setup.
+Each project subscribes via a GitHub Actions workflow that pulls `rules/` into `.claude/rules/shared/` weekly.
 
 Run `/setup-project-ai` in any existing project to install the workflow and directory structure.
 New projects can be created from `apple-project-template` which includes all of this pre-wired.
