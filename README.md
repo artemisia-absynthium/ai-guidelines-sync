@@ -1,4 +1,4 @@
-# claude-setup-plugin
+# claude-setup
 
 Central source of Swift/visionOS Claude Code rules and project-setup skill.
 

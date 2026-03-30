@@ -47,10 +47,10 @@ New projects created from `apple-project-template` already have all of this.
              ssh-key: ${{ secrets.CLAUDE_RULES_DEPLOY_KEY }}
              ref: <DEFAULT_BRANCH>
 
-         - name: Checkout claude-setup-plugin repo
+         - name: Checkout claude-setup repo
            uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
            with:
-             repository: <PERSONAL_GH_USERNAME>/claude-setup-plugin
+             repository: artemisia-absynthium/claude-setup
              path: .tmp-claude-rules
 
          - name: Sync rules into shared/
