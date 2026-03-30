@@ -1,0 +1,11 @@
+{
+  "name": "claude-setup",
+  "version": "1.0.0",
+  "description": "Swift/visionOS Claude Code rules and project-setup skill. Syncs domain rules into projects via GitHub Actions and scaffolds new project AI infrastructure.",
+  "author": {
+    "name": "Cristina De Rito"
+  },
+  "repository": "https://github.com/artemisia-absynthium/claude-setup-plugin",
+  "license": "MIT",
+  "keywords": ["swift", "visionos", "realitykit", "rules", "setup", "apple"]
+}
