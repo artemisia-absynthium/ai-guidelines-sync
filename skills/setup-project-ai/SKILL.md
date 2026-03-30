@@ -24,8 +24,8 @@ New projects created from `apple-project-template` already have all of this.
    ```
 
 3. **Write `.github/workflows/sync-claude-rules.yml`** using the template below.
-   Ask the user for their personal GitHub username to fill in the `repository:` field
-   if it cannot be inferred.
+   - Ask the user for their personal GitHub username to fill in the `repository:` field if it cannot be inferred.
+   - Detect the default branch: run `git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'` and use the result for `ref:` and `git push origin <branch>`. If the command returns nothing, ask the user.
 
    ```yaml
    name: Sync Claude Rules
@@ -38,15 +38,17 @@ New projects created from `apple-project-template` already have all of this.
    jobs:
      sync:
        runs-on: ubuntu-latest
+       permissions:
+         contents: read  # push is via deploy key, not GITHUB_TOKEN
        steps:
          - name: Checkout project repo
-           uses: actions/checkout@v4
+           uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
            with:
-             token: ${{ secrets.CLAUDE_RULES_PAT }}
-             ref: develop
+             ssh-key: ${{ secrets.CLAUDE_RULES_DEPLOY_KEY }}
+             ref: <DEFAULT_BRANCH>
 
          - name: Checkout claude-setup-plugin repo
-           uses: actions/checkout@v4
+           uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
            with:
              repository: <PERSONAL_GH_USERNAME>/claude-setup-plugin
              path: .tmp-claude-rules
@@ -66,7 +68,7 @@ New projects created from `apple-project-template` already have all of this.
                echo "No rule changes — nothing to commit"
              else
                git commit -m "chore: sync Claude rules from upstream"
-               git push origin develop
+               git push origin <DEFAULT_BRANCH>
              fi
    ```
 
@@ -100,7 +102,7 @@ New projects created from `apple-project-template` already have all of this.
    - List what was created
    - List what was skipped (already existed)
    - Remind them to:
-     1. Add `CLAUDE_RULES_PAT` secret: repo Settings → Secrets → Actions
+     1. Generate a deploy key and add it to the repo (see plugin README for steps)
      2. Trigger the workflow manually once via the Actions tab to populate `shared/`
      3. Fill in `local/architecture.md` with project-specific details
 

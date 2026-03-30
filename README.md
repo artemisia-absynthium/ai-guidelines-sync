@@ -38,9 +38,12 @@ workflow that syncs `rules/` into `.claude/rules/shared/` weekly.
 Run `/setup-project-ai` in any existing project to install the workflow and directory structure.
 New projects can be created from `apple-project-template` which includes all of this pre-wired.
 
-## Adding `CLAUDE_RULES_PAT` to a subscriber repo
+## Adding a deploy key to a subscriber repo
 
-The sync workflow pushes directly to `develop` (bypassing branch protection) using a PAT:
+The sync workflow pushes directly to `develop` bypassing branch protection via a deploy key:
 
-1. GitHub → personal Settings → Developer settings → Personal access tokens → `repo` scope
-2. Subscriber repo → Settings → Secrets → Actions → New secret → `CLAUDE_RULES_PAT`
+1. Generate a key pair: `ssh-keygen -t ed25519 -C "claude-rules-sync" -f /tmp/claude_rules_deploy_key -N ""`
+2. Subscriber repo → Settings → Deploy keys → Add deploy key → paste public key → enable **Allow write access**
+3. Subscriber repo → Settings → Branches → edit `develop` rule → add the deploy key to the bypass list
+4. Subscriber repo → Settings → Secrets → Actions → New secret → `CLAUDE_RULES_DEPLOY_KEY` → paste private key
+5. Delete the key files from `/tmp/` when done
