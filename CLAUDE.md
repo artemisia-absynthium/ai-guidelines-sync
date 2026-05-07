@@ -24,6 +24,10 @@ One-shot scaffolding skill: detects project type, creates `.claude/rules/shared/
 
 To bootstrap on a new machine: copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md`. After the skill runs in a subscriber repo and the workflow is triggered once, skills are committed to `.claude/skills/shared/` and available team-wide — no per-machine setup needed after that. Project-specific skills go in `.claude/skills/local/`; the sync workflow never touches that directory.
 
+### Design invariant
+
+Any directory the sync workflow writes to must be `*/shared/`. The paired `*/local/` is always user-owned and never touched by sync. Never sync into a bare directory — it would prevent users adding their own content alongside upstream content.
+
 ### Sync model
 
 Subscriber repos run a GitHub Actions workflow that checks out `artemisia-absynthium/claude-setup` and:
@@ -51,4 +55,4 @@ Available categories: `swift`, `visionos`, `web`. Add a line to opt in to a new 
 3. Subscriber repo → Settings → Branches → edit branch protection → add deploy key to bypass list
 4. Subscriber repo → Settings → Secrets → Actions → `CLAUDE_RULES_DEPLOY_KEY` → paste private key
 5. Delete `/tmp/claude_rules_deploy_key*` when done
-6. Trigger the sync workflow manually once via the Actions tab to populate `shared/` and `skills/`
+6. Trigger the sync workflow manually once via the Actions tab to populate `rules/shared/` and `skills/shared/`

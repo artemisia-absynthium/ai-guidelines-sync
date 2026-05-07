@@ -154,7 +154,7 @@ New projects created from `apple-project-template` already have all of this.
    - List what was skipped (already existed)
    - Remind them to:
      1. Generate a deploy key and add it to the repo (see repo README for steps)
-     2. Trigger the workflow manually once via the Actions tab to populate `shared/` and `skills/`
+     2. Trigger the workflow manually once via the Actions tab to populate `rules/shared/` and `skills/shared/`
      3. Fill in `local/architecture.md` with project-specific details
      4. Edit `.claude/rules-sync` if the detected categories need adjusting
 

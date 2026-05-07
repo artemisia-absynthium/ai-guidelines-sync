@@ -56,4 +56,4 @@ The sync workflow pushes directly to the default branch bypassing branch protect
 3. Subscriber repo → Settings → Branches → edit the default branch protection rule → add the deploy key to the bypass list
 4. Subscriber repo → Settings → Secrets → Actions → New secret → `CLAUDE_RULES_DEPLOY_KEY` → paste private key
 5. Delete `/tmp/claude_rules_deploy_key*` when done
-6. Trigger the sync workflow manually once via the Actions tab to populate `shared/` and `skills/`
+6. Trigger the sync workflow manually once via the Actions tab to populate `rules/shared/` and `skills/shared/`
