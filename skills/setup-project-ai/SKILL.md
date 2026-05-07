@@ -1,7 +1,7 @@
 # setup-project-ai
 
-Scaffold an existing project for Claude Code rules infrastructure: creates the `shared/`/`local/`
-directory structure, the sync workflow, and a project-specific architecture stub.
+Scaffold an existing project for Claude Code rules infrastructure: creates the `synced/`
+directory structure and the sync workflow.
 
 Run this once when enrolling an existing project that was not created from the template.
 New projects created from `apple-project-template` already have all of this.
@@ -19,17 +19,15 @@ New projects created from `apple-project-template` already have all of this.
 
 2. **Create directory structure**:
    ```
-   .claude/rules/shared/    ← managed by sync workflow, do not edit
-   .claude/rules/local/     ← project-specific rules, owned by the team
-   .claude/skills/shared/   ← managed by sync workflow, do not edit
-   .claude/skills/local/    ← project-specific skills, owned by the team
+   .claude/rules/synced/    ← managed by sync workflow, do not edit
+   .claude/skills/synced/   ← managed by sync workflow, do not edit
    .github/workflows/       ← if not already present
    ```
 
 3. **Write `.claude/rules-sync`** only if it does not already exist. Use the categories detected in Step 1, one per line, with a comment header:
    ```
    # Sync config — managed by setup-project-ai skill
-   # Edit this file to change which rule categories are synced into .claude/rules/shared/.
+   # Edit this file to change which rule categories are synced into .claude/rules/synced/.
    # Category names match directories under rules/ in artemisia-absynthium/claude-setup.
    swift
    visionos
@@ -64,10 +62,19 @@ New projects created from `apple-project-template` already have all of this.
              repository: artemisia-absynthium/claude-setup
              path: .tmp-claude-rules
 
-         - name: Sync rules into shared/
+         - name: Migrate shared/ to synced/ (one-time)
+           run: |
+             for dir in ".claude/rules" ".claude/skills"; do
+               if [[ -d "$dir/shared" && ! -d "$dir/synced" ]]; then
+                 mv "$dir/shared" "$dir/synced"
+                 echo "Migrated $dir/shared → $dir/synced"
+               fi
+             done
+
+         - name: Sync rules into synced/
            run: |
              RULES_SRC=".tmp-claude-rules/rules"
-             RULES_DST=".claude/rules/shared"
+             RULES_DST=".claude/rules/synced"
              CONFIG_FILE=".claude/rules-sync"
 
              mkdir -p "$RULES_DST"
@@ -91,7 +98,7 @@ New projects created from `apple-project-template` already have all of this.
                done < "$CONFIG_FILE"
 
                if [[ ${#RSYNC_ARGS[@]} -eq 0 ]]; then
-                 echo "ERROR: no valid categories found in $CONFIG_FILE — aborting to avoid wiping shared/"
+                 echo "ERROR: no valid categories found in $CONFIG_FILE — aborting to avoid wiping synced/"
                  exit 1
                fi
 
@@ -102,10 +109,10 @@ New projects created from `apple-project-template` already have all of this.
                  "$RULES_SRC/" "$RULES_DST/"
              fi
 
-         - name: Sync skills into .claude/skills/shared/
+         - name: Sync skills into .claude/skills/synced/
            run: |
              SKILLS_SRC=".tmp-claude-rules/skills"
-             SKILLS_DST=".claude/skills/shared"
+             SKILLS_DST=".claude/skills/synced"
              mkdir -p "$SKILLS_DST"
              rsync -av --delete "$SKILLS_SRC/" "$SKILLS_DST/"
              rm -rf .tmp-claude-rules
@@ -114,7 +121,7 @@ New projects created from `apple-project-template` already have all of this.
            run: |
              git config user.name "github-actions[bot]"
              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-             git add .claude/rules/shared .claude/skills/shared
+             git add .claude/rules/synced .claude/skills/synced
              if git diff --cached --quiet; then
                echo "No changes — nothing to commit"
              else
@@ -123,45 +130,18 @@ New projects created from `apple-project-template` already have all of this.
              fi
    ```
 
-5. **Scaffold `.claude/rules/local/architecture.md`** only if it does not already exist:
-   ```markdown
-   ---
-   description: <project name> architecture — key types, package structure, communication patterns
-   alwaysApply: true
-   ---
-
-   # Architecture
-
-   ## What this app is
-
-   <!-- TODO: brief description -->
-
-   ## Key types / ViewModels
-
-   <!-- TODO: list the main state classes and their roles -->
-
-   ## Package / module structure
-
-   <!-- TODO: table of packages and their roles -->
-
-   ## Communication patterns
-
-   <!-- TODO: how layers communicate -->
-   ```
-
-6. **Report** to the user:
+5. **Report** to the user:
    - List what was created
    - List what was skipped (already existed)
    - Remind them to:
      1. Generate a deploy key and add it to the repo (see repo README for steps)
-     2. Trigger the workflow manually once via the Actions tab to populate `rules/shared/` and `skills/shared/`
-     3. Fill in `local/architecture.md` with project-specific details
+     2. Trigger the workflow manually once via the Actions tab to populate `rules/synced/` and `skills/synced/`
+     3. Run `/init` in the project root to generate CLAUDE.md with codebase context
      4. Edit `.claude/rules-sync` if the detected categories need adjusting
 
 ## What this skill does NOT touch
 
-- Any existing `.claude/rules/local/` files
-- Any existing `.claude/skills/local/` files
+- Any existing files in `.claude/rules/` or `.claude/skills/` outside of `synced/`
 - Any existing `.github/workflows/` files **other than** `sync-claude-rules.yml` (that file is always overwritten to pick up template updates)
 - An existing `.claude/rules-sync` file (skip if present to preserve manual edits)
 - `CLAUDE.md`, `README.md`, or any source files
