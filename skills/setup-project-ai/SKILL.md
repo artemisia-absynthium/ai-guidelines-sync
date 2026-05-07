@@ -48,7 +48,7 @@ New projects created from `apple-project-template` already have all of this.
      sync:
        runs-on: ubuntu-latest
        permissions:
-         contents: read  # push is via deploy key, not GITHUB_TOKEN
+         contents: write  # needed when CLAUDE_RULES_DEPLOY_KEY is absent; harmless when deploy key overrides auth
        steps:
          - name: Checkout project repo
            uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -134,7 +134,7 @@ New projects created from `apple-project-template` already have all of this.
    - List what was created
    - List what was skipped (already existed)
    - Remind them to:
-     1. Generate a deploy key and add it to the repo (see repo README for steps)
+     1. **If the default branch has branch protection rules:** set up a deploy key so the workflow can bypass protection (see repo README for steps). If there is no branch protection, the workflow pushes via `GITHUB_TOKEN` — no deploy key needed.
      2. Trigger the workflow manually once via the Actions tab to populate `rules/synced/` and `skills/synced/`
      3. Run `/init` in the project root to generate CLAUDE.md with codebase context
      4. Edit `.claude/rules-sync` if the detected categories need adjusting
