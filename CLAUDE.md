@@ -51,8 +51,10 @@ Available categories: `swift`, `visionos`, `web`. Add a line to opt in to a new 
 ## Adding a deploy key to a subscriber repo
 
 1. `ssh-keygen -t ed25519 -C "claude-rules-sync" -f /tmp/claude_rules_deploy_key -N ""`
-2. Subscriber repo → Settings → Deploy keys → add public key with **Allow write access**
+2. `cat /tmp/claude_rules_deploy_key.pub | pbcopy` — copies public key to clipboard
+   Subscriber repo → Settings → Deploy keys → add public key with **Allow write access**
 3. Subscriber repo → Settings → Branches → edit branch protection → add deploy key to bypass list
-4. Subscriber repo → Settings → Secrets → Actions → `CLAUDE_RULES_DEPLOY_KEY` → paste private key
+4. `cat /tmp/claude_rules_deploy_key | pbcopy` — copies private key to clipboard
+   Subscriber repo → Settings → Secrets → Actions → `CLAUDE_RULES_DEPLOY_KEY` → paste private key
 5. Delete `/tmp/claude_rules_deploy_key*` when done
 6. Trigger the sync workflow manually once via the Actions tab to populate `rules/synced/` and `skills/synced/`
