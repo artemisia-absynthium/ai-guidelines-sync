@@ -21,6 +21,8 @@ New projects created from `apple-project-template` already have all of this.
    ```
    .claude/rules/shared/    ← managed by sync workflow, do not edit
    .claude/rules/local/     ← project-specific rules, owned by the team
+   .claude/skills/shared/   ← managed by sync workflow, do not edit
+   .claude/skills/local/    ← project-specific skills, owned by the team
    .github/workflows/       ← if not already present
    ```
 
@@ -35,7 +37,6 @@ New projects created from `apple-project-template` already have all of this.
 
 4. **Write `.github/workflows/sync-claude-rules.yml`** using the template below.
    - Ask the user for their personal GitHub username to fill in the `repository:` field if it cannot be inferred.
-   - Detect the default branch: run `git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'` and use the result for `ref:` and `git push origin <branch>`. If the command returns nothing, ask the user.
 
    ```yaml
    name: Sync Claude Rules
@@ -55,7 +56,7 @@ New projects created from `apple-project-template` already have all of this.
            uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
            with:
              ssh-key: ${{ secrets.CLAUDE_RULES_DEPLOY_KEY }}
-             ref: <DEFAULT_BRANCH>
+             ref: ${{ github.event.repository.default_branch }}
 
          - name: Checkout claude-setup repo
            uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -101,18 +102,24 @@ New projects created from `apple-project-template` already have all of this.
                  "$RULES_SRC/" "$RULES_DST/"
              fi
 
+         - name: Sync skills into .claude/skills/shared/
+           run: |
+             SKILLS_SRC=".tmp-claude-rules/skills"
+             SKILLS_DST=".claude/skills/shared"
+             mkdir -p "$SKILLS_DST"
+             rsync -av --delete "$SKILLS_SRC/" "$SKILLS_DST/"
              rm -rf .tmp-claude-rules
 
          - name: Commit and push if changed
            run: |
              git config user.name "github-actions[bot]"
              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-             git add .claude/rules/shared
+             git add .claude/rules/shared .claude/skills/shared
              if git diff --cached --quiet; then
-               echo "No rule changes — nothing to commit"
+               echo "No changes — nothing to commit"
              else
-               git commit -m "chore: sync Claude rules from upstream"
-               git push origin <DEFAULT_BRANCH>
+               git commit -m "chore: sync Claude rules and skills from upstream"
+               git push origin "${{ github.event.repository.default_branch }}"
              fi
    ```
 
@@ -147,13 +154,14 @@ New projects created from `apple-project-template` already have all of this.
    - List what was skipped (already existed)
    - Remind them to:
      1. Generate a deploy key and add it to the repo (see repo README for steps)
-     2. Trigger the workflow manually once via the Actions tab to populate `shared/`
+     2. Trigger the workflow manually once via the Actions tab to populate `shared/` and `skills/`
      3. Fill in `local/architecture.md` with project-specific details
      4. Edit `.claude/rules-sync` if the detected categories need adjusting
 
 ## What this skill does NOT touch
 
 - Any existing `.claude/rules/local/` files
+- Any existing `.claude/skills/local/` files
 - Any existing `.github/workflows/` files **other than** `sync-claude-rules.yml` (that file is always overwritten to pick up template updates)
 - An existing `.claude/rules-sync` file (skip if present to preserve manual edits)
 - `CLAUDE.md`, `README.md`, or any source files

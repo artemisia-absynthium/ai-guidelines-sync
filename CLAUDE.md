@@ -20,13 +20,17 @@ Changes here flow to subscriber projects on the next weekly sync (Mondays 9am UT
 
 ### Skill (`skills/setup-project-ai/SKILL.md`)
 
-One-shot scaffolding skill: detects project type, creates `.claude/rules/shared/` and `.claude/rules/local/` directories, writes `.claude/rules-sync` with the appropriate categories, writes the sync workflow, and stubs `local/architecture.md`. It does **not** touch existing local rules, an existing `.claude/rules-sync`, other workflows, `CLAUDE.md`, or source files.
+One-shot scaffolding skill: detects project type, creates `.claude/rules/shared/`, `.claude/rules/local/`, `.claude/skills/shared/`, and `.claude/skills/local/` directories, writes `.claude/rules-sync` with the appropriate categories, writes the sync workflow, and stubs `local/architecture.md`. It does **not** touch existing local rules or skills, an existing `.claude/rules-sync`, other workflows, `CLAUDE.md`, or source files.
 
-To activate: copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md`. Changes here require manual redistribution to each machine.
+To bootstrap on a new machine: copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md`. After the skill runs in a subscriber repo and the workflow is triggered once, skills are committed to `.claude/skills/shared/` and available team-wide — no per-machine setup needed after that. Project-specific skills go in `.claude/skills/local/`; the sync workflow never touches that directory.
 
 ### Sync model
 
-Subscriber repos run a GitHub Actions workflow that checks out `artemisia-absynthium/claude-setup` and selectively rsyncs rule categories into `.claude/rules/shared/`. Which categories are synced is controlled by `.claude/rules-sync` in the subscriber repo — a plain-text file with one category name per line. If that file is absent, all categories are synced (backward-compatible default).
+Subscriber repos run a GitHub Actions workflow that checks out `artemisia-absynthium/claude-setup` and:
+- Selectively rsyncs rule categories into `.claude/rules/shared/` (controlled by `.claude/rules-sync`)
+- Rsyncs all skills into `.claude/skills/shared/` (no config needed — all skills are synced)
+
+If `.claude/rules-sync` is absent, all rule categories are synced (backward-compatible default).
 
 The workflow pushes via an SSH deploy key (`CLAUDE_RULES_DEPLOY_KEY` secret) to bypass branch protection on the subscriber's default branch.
 
@@ -40,11 +44,11 @@ visionos
 
 Available categories: `swift`, `visionos`, `web`. Add a line to opt in to a new category; remove a line to stop receiving it. The sync workflow will delete previously-synced files for removed categories.
 
-## Adding a subscriber repo
+## Adding a deploy key to a subscriber repo
 
 1. `ssh-keygen -t ed25519 -C "claude-rules-sync" -f /tmp/claude_rules_deploy_key -N ""`
 2. Subscriber repo → Settings → Deploy keys → add public key with **Allow write access**
 3. Subscriber repo → Settings → Branches → edit branch protection → add deploy key to bypass list
 4. Subscriber repo → Settings → Secrets → Actions → `CLAUDE_RULES_DEPLOY_KEY` → paste private key
 5. Delete `/tmp/claude_rules_deploy_key*` when done
-6. Trigger the sync workflow manually once via the Actions tab to populate `shared/`
+6. Trigger the sync workflow manually once via the Actions tab to populate `shared/` and `skills/`

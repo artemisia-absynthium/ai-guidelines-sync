@@ -21,9 +21,9 @@ Generic workflow skills (planning, debugging, code review) are intentionally exc
 
 | Skill | What it does |
 |-------|-------------|
-| `setup-project-ai` | Scaffolds an existing repo with the sync workflow, `shared/`/`local/` structure, category config, and an architecture stub |
+| `setup-project-ai` | Scaffolds an existing repo with the sync workflow, `shared/`/`local/` structure for both rules and skills, category config, and an architecture stub |
 
-Copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md` to use it.
+To bootstrap on a new machine, copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md`. After `/setup-project-ai` runs in a subscriber repo and the workflow is triggered once, skills are committed to `.claude/skills/shared/` and available team-wide — no per-machine setup needed. Add project-specific skills to `.claude/skills/local/`; the sync workflow never touches that directory.
 
 ## Using rules in a project
 
@@ -49,10 +49,11 @@ Available categories: `swift`, `visionos`, `web`, `node` (future: `android`, `py
 
 ## Adding a deploy key to a subscriber repo
 
-The sync workflow pushes directly to `develop` bypassing branch protection via a deploy key:
+The sync workflow pushes directly to the default branch bypassing branch protection via a deploy key:
 
 1. Generate a key pair: `ssh-keygen -t ed25519 -C "claude-rules-sync" -f /tmp/claude_rules_deploy_key -N ""`
 2. Subscriber repo → Settings → Deploy keys → Add deploy key → paste public key → enable **Allow write access**
-3. Subscriber repo → Settings → Branches → edit `develop` rule → add the deploy key to the bypass list
+3. Subscriber repo → Settings → Branches → edit the default branch protection rule → add the deploy key to the bypass list
 4. Subscriber repo → Settings → Secrets → Actions → New secret → `CLAUDE_RULES_DEPLOY_KEY` → paste private key
-5. Delete the key files from `/tmp/` when done
+5. Delete `/tmp/claude_rules_deploy_key*` when done
+6. Trigger the sync workflow manually once via the Actions tab to populate `shared/` and `skills/`
