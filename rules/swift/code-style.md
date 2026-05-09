@@ -8,14 +8,29 @@ globs:
 
 ## Logging
 
-Never use `print()` in production code. Use `Logger` from `OSLog` everywhere:
+Never use `print()` in production code. Use `Logger` from `OSLog` everywhere.
+
+Declare all loggers as static properties on a `Logger` extension in a dedicated `Loggers.swift` file, one per subsystem category:
 
 ```swift
-private let logger = Logger(
-    subsystem: NSString(#fileID).pathComponents.first ?? "",
-    category: NSString(#fileID).lastPathComponent
-)
+import OSLog
+
+extension Logger {
+    private static let subsystem = Bundle.main.bundleIdentifier ?? "<your.bundle.id>"
+    static let app         = Logger(subsystem: subsystem, category: "App")
+    static let networking  = Logger(subsystem: subsystem, category: "Networking")
+    static let persistence = Logger(subsystem: subsystem, category: "Persistence")
+}
 ```
+
+Call them directly at the use site — no local `logger` constant in individual files:
+
+```swift
+Logger.persistence.debug("Opening database at \(path, privacy: .private)")
+Logger.app.fault("Something went wrong: \(error)")
+```
+
+To add a category, add one line to `Loggers.swift`. Never declare a local `private let logger` in a file.
 
 ## File header
 
