@@ -29,7 +29,20 @@ New projects created from `apple-project-template` already have all of this.
    Examples: visionOS + iOS + Mac → `swift`, `xcode`, `visionos`, `mac`. iOS only →
    `swift`, `xcode`. Mac-only SwiftUI → `swift`, `xcode`, `mac`.
 
-2. **Create directory structure**:
+2. **State audit** — before writing anything, run these exact Bash commands to establish ground truth. Do NOT use Explore subagents or Glob/LS tools for this check — extension-less files inside dotdirectories are routinely missed by pattern-based tools.
+
+   ```bash
+   ls -la .claude/ 2>/dev/null || echo ".claude/ missing"
+   ls -la .github/workflows/ 2>/dev/null || echo ".github/workflows/ missing"
+   [[ -f .claude/rules-sync ]] && echo "rules-sync: EXISTS" || echo "rules-sync: MISSING"
+   [[ -f .github/workflows/sync-claude-rules.yml ]] && echo "workflow: EXISTS" || echo "workflow: MISSING"
+   [[ -d .claude/rules/synced ]] && echo "rules/synced: EXISTS" || echo "rules/synced: MISSING"
+   [[ -d .claude/skills/synced ]] && echo "skills/synced: EXISTS" || echo "skills/synced: MISSING"
+   ```
+
+   Record results. All subsequent steps are conditional on this audit output, not on assumptions from Step 1.
+
+3. **Create directory structure**:
    ```
    .claude/rules/synced/    ← managed by sync workflow, do not edit
    .claude/skills/synced/   ← managed by sync workflow, do not edit
