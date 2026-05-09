@@ -19,6 +19,16 @@ Prefer Xcode MCP tools over filesystem equivalents for all operations inside an 
 | List directory contents | `mcp__xcode__XcodeLS` | `ls` / `Bash(ls)` |
 | Create a new directory/group | `mcp__xcode__XcodeMakeDir` | `Bash(mkdir)` |
 
+## Build, test, and preview
+
+| Task | Use |
+|------|-----|
+| Build the project | `mcp__xcode__BuildProject` |
+| Run all tests | `mcp__xcode__RunAllTests` |
+| Run specific tests | `mcp__xcode__RunSomeTests` |
+| Read the build log | `mcp__xcode__GetBuildLog` |
+| Render a SwiftUI preview | `mcp__xcode__RenderPreview` |
+
 ## Gotchas
 
 - `mcp__xcode__XcodeMakeDir` requires `mcp__xcode__XcodeLS` to have been called first in the same session or it will fail with an error about unknown project structure.

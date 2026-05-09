@@ -12,11 +12,14 @@ Generic workflow skills (planning, debugging, code review) are intentionally exc
 | File | Covers |
 |------|--------|
 | `rules/swift/code-style.md` | Logger, file headers, import order, naming, SwiftLint |
-| `rules/swift/concurrency.md` | `@MainActor`, `@Observable`, Sendable, async patterns |
-| `rules/swift/testing.md` | Swift Testing (`@Test`, `@Suite`, `#expect`, `#require`) |
+| `rules/swift/concurrency.md` | `@MainActor`, `@Observable`, async patterns, Task discipline |
+| `rules/swift/swiftui.md` | View structure, adaptive layouts, state ownership, previews |
+| `rules/swift/testing.md` | Swift Testing (`@Test`, `@Suite`, `#expect`, `#require`); UI tests use XCTest |
+| `rules/mac/affordances.md` | Mac app affordances — menus, keyboard shortcuts, windows, native chrome |
 | `rules/visionos/realitykit.md` | RealityView lifecycle, entity rules, z-offset, attachments |
 | `rules/web/playwright.md` | Playwright test execution vs visual verification |
-| `rules/xcode/mcp-tools.md` | Xcode MCP tools for file ops, directory listing, project structure |
+| `rules/xcode/mcp-tools.md` | Xcode MCP tools for file ops, build, test, preview |
+| `rules/xcode/packages.md` | SPM only; no CocoaPods or Carthage |
 
 ### Skills (`skills/`)
 
@@ -46,7 +49,7 @@ visionos
 
 The sync workflow reads this file and only rsyncs the listed directories. If the file is absent, all categories are synced (backward-compatible default). The `/setup-project-ai` skill writes this file automatically based on the detected project type.
 
-Available categories: `swift`, `visionos`, `web`, `xcode`, `node` (future: `android`, `python`).
+Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `node` (future: `android`, `python`).
 
 ## Adding a deploy key to a subscriber repo
 

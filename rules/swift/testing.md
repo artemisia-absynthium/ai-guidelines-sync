@@ -41,3 +41,8 @@ struct ItemListViewModelTests {
 
 Use `#require` for preconditions whose failure makes the rest of the test meaningless.
 Use `#expect` for all other assertions so failures accumulate.
+
+## UI tests
+
+UI tests use XCTest (via `XCUIApplication`). Swift Testing does not support UI test targets.
+Only unit and integration test targets use `@Test` / `@Suite`.

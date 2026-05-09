@@ -8,14 +8,26 @@ New projects created from `apple-project-template` already have all of this.
 
 ## Steps
 
-1. **Detect project type** by reading the working directory:
-   - `Package.swift` with `.visionOS` → visionOS (categories: `swift`, `visionos`, `xcode`)
-   - `Package.swift` with `.iOS` only → iOS (categories: `swift`, `xcode`)
-   - `build.gradle` / `build.gradle.kts` → Android/Kotlin (categories: `android`)
-   - `package.json` + `playwright.config.*` present → web (categories: `web`)
-   - `package.json` only → Node.js (categories: `node`)
-   - `pyproject.toml` / `requirements.txt` → Python (categories: `python`)
-   - Any `.swift` files → generic Swift fallback (categories: `swift`, `xcode`)
+1. **Detect categories** by reading the working directory. Apple platform categories are
+   **additive** — collect all that apply and union them. Non-Apple stacks are exclusive.
+
+   **Swift / Apple baseline** — add when any Swift indicator is present:
+   - Any `.swift` files, or `Package.swift` exists, or `.xcodeproj` is present → add `swift`, `xcode`
+
+   **Apple platform additions** — check independently, on top of the baseline.
+   App projects declare platforms in `project.pbxproj`; Swift packages declare them in
+   `Package.swift`. Both are checked:
+   - `project.pbxproj` contains `XROS_DEPLOYMENT_TARGET`, OR `Package.swift` contains `.visionOS` → add `visionos`
+   - `project.pbxproj` contains `MACOSX_DEPLOYMENT_TARGET`, OR `Package.swift` contains `.macOS` → add `mac`
+
+   **Non-Apple stacks** — exclusive, stop after first match:
+   - `build.gradle` / `build.gradle.kts` → `android`
+   - `package.json` + `playwright.config.*` present → `web`
+   - `package.json` only → `node`
+   - `pyproject.toml` / `requirements.txt` → `python`
+
+   Examples: visionOS + iOS + Mac → `swift`, `xcode`, `visionos`, `mac`. iOS only →
+   `swift`, `xcode`. Mac-only SwiftUI → `swift`, `xcode`, `mac`.
 
 2. **Create directory structure**:
    ```

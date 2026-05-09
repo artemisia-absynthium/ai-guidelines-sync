@@ -48,3 +48,7 @@ Back-navigation and completion callbacks follow the same pattern.
 
 Prefer structured concurrency (`async let`, `withTaskGroup`) over unstructured `Task { }` where possible.
 Only use `Task.detached` when you explicitly need to escape the current actor — justify it in a comment.
+
+Do not spin up `Task { }` inside a view body for anything other than brief fire-and-forget UI feedback
+(e.g. triggering a haptic, dismissing a sheet after a delay). Any work with side-effects or meaningful
+state changes belongs in a view model method, called from `.task { }` or a button action.
