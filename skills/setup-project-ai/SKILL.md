@@ -46,8 +46,6 @@ New projects created from `apple-project-template` already have all of this.
 2. **State audit** — before writing anything, run these exact Bash commands to establish ground truth. Do NOT use Explore subagents or Glob/LS tools for this check — extension-less files inside dotdirectories are routinely missed by pattern-based tools.
 
    ```bash
-   ls -la .claude/ 2>/dev/null || echo ".claude/ missing"
-   ls -la .github/workflows/ 2>/dev/null || echo ".github/workflows/ missing"
    [[ -f .claude/rules-sync ]] && echo "rules-sync: EXISTS" || echo "rules-sync: MISSING"
    [[ -f .github/workflows/sync-claude-rules.yml ]] && echo "workflow: EXISTS" || echo "workflow: MISSING"
    [[ -d .claude/rules/synced ]] && echo "rules/synced: EXISTS" || echo "rules/synced: MISSING"
