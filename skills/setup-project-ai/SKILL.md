@@ -16,9 +16,23 @@ New projects created from `apple-project-template` already have all of this.
 
    **Apple platform additions** — check independently, on top of the baseline.
    App projects declare platforms in `project.pbxproj`; Swift packages declare them in
-   `Package.swift`. Both are checked:
-   - `project.pbxproj` contains `XROS_DEPLOYMENT_TARGET`, OR `Package.swift` contains `.visionOS` → add `visionos`
-   - `project.pbxproj` contains `MACOSX_DEPLOYMENT_TARGET`, OR `Package.swift` contains `.macOS` → add `mac`
+   `Package.swift`. Run these exact commands and record the output — use the output, not
+   CLAUDE.md or memory, to decide:
+
+   ```bash
+   grep -rl "XROS_DEPLOYMENT_TARGET" . --include="project.pbxproj" 2>/dev/null | grep -q . \
+     && echo "visionos (pbxproj): YES" || echo "visionos (pbxproj): NO"
+   grep -rl "MACOSX_DEPLOYMENT_TARGET" . --include="project.pbxproj" 2>/dev/null | grep -q . \
+     && echo "mac (pbxproj): YES" || echo "mac (pbxproj): NO"
+   grep -rl "\.visionOS" . --include="Package.swift" 2>/dev/null | grep -q . \
+     && echo "visionos (Package.swift): YES" || echo "visionos (Package.swift): NO"
+   grep -rl "\.macOS" . --include="Package.swift" 2>/dev/null | grep -q . \
+     && echo "mac (Package.swift): YES" || echo "mac (Package.swift): NO"
+   ```
+
+   Add each platform only when at least one check for it says YES:
+   - Either visionos check YES → add `visionos`
+   - Either mac check YES → add `mac`
 
    **Non-Apple stacks** — exclusive, stop after first match:
    - `build.gradle` / `build.gradle.kts` → `android`
