@@ -6,6 +6,21 @@ globs:
 
 # visionOS & RealityKit
 
+## Naming
+
+- Entity types: `*Entity`. State types: `*State`. Views: `*View`.
+
+## Imports
+
+`RealityKit` goes in the system/Apple group, before internal modules:
+
+```swift
+import RealityKit
+import SwiftUI
+
+import MyModule
+```
+
 ## RealityView pattern
 
 ```swift

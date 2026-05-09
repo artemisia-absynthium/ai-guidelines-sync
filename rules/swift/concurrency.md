@@ -1,5 +1,5 @@
 ---
-description: Swift concurrency — @MainActor, @Observable, Sendable, async/await patterns
+description: Swift concurrency — @MainActor, @Observable, async/await patterns
 globs:
   - "**/*.swift"
 ---
@@ -43,11 +43,6 @@ Task { @MainActor [weak self] in
 ```
 
 Back-navigation and completion callbacks follow the same pattern.
-
-## Sendable
-
-`Transform` (RealityKit) is not `Sendable`. Do not capture it inside `withTaskGroup` / `addTask` closures.
-Use `SIMD3<Float>` (which is `Sendable`) to pass position data across task boundaries instead.
 
 ## Structured concurrency
 

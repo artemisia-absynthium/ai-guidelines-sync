@@ -50,7 +50,7 @@ Every Swift file starts with:
 Order: system/Apple frameworks first, then internal modules, then local.
 
 ```swift
-import RealityKit
+import Foundation
 import SwiftUI
 
 import MyModule
@@ -61,7 +61,7 @@ No blank line within a group; one blank line between groups.
 
 ## Naming and structure
 
-- State types: `*State`. Views: `*View`. Entities: `*Entity`.
+- State types: `*State`. Views: `*View`. View models: `*ViewModel`.
 - `final class` for state types not intended for subclassing.
 - `// MARK: -` sections: `Properties`, `Initializer`, `Helper Functions`, etc.
 - Access control: `private` for implementation details; expose only what callers need.
