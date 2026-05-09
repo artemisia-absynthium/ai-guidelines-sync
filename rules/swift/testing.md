@@ -42,6 +42,15 @@ struct ItemListViewModelTests {
 Use `#require` for preconditions whose failure makes the rest of the test meaningless.
 Use `#expect` for all other assertions so failures accumulate.
 
+## StoreKit tests
+
+StoreKit suites using `SKTestSession` must be marked `.serialized` — `SKTestSession` is not safe to run in parallel:
+
+```swift
+@Suite(.serialized)
+struct StoreKitTests { ... }
+```
+
 ## UI tests
 
 UI tests use XCTest (via `XCUIApplication`). Swift Testing does not support UI test targets.

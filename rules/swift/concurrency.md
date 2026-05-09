@@ -52,3 +52,7 @@ Only use `Task.detached` when you explicitly need to escape the current actor â€
 Do not spin up `Task { }` inside a view body for anything other than brief fire-and-forget UI feedback
 (e.g. triggering a haptic, dismissing a sheet after a delay). Any work with side-effects or meaningful
 state changes belongs in a view model method, called from `.task { }` or a button action.
+
+## Swift 6 actor isolation
+
+Do not add `@preconcurrency` or `nonisolated` to silence compiler errors without understanding the isolation boundary. Both suppress checks that exist to prevent data races â€” find and fix the real crossing instead.
