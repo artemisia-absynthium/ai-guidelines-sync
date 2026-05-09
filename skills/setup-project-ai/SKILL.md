@@ -169,11 +169,7 @@ New projects created from `apple-project-template` already have all of this.
 6. **Detect the project's default branch** before writing the report. Never assume `main`.
 
    ```bash
-   DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
-     | sed 's@^origin/@@')
-   if [ -z "$DEFAULT_BRANCH" ]; then
-     DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null)
-   fi
+   DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null)
    : "${DEFAULT_BRANCH:=<your default branch>}"
    ```
 
