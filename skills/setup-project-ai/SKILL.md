@@ -9,13 +9,13 @@ New projects created from `apple-project-template` already have all of this.
 ## Steps
 
 1. **Detect project type** by reading the working directory:
-   - `Package.swift` with `.visionOS` → visionOS (categories: `swift`, `visionos`)
-   - `Package.swift` with `.iOS` only → iOS (categories: `swift`)
+   - `Package.swift` with `.visionOS` → visionOS (categories: `swift`, `visionos`, `xcode`)
+   - `Package.swift` with `.iOS` only → iOS (categories: `swift`, `xcode`)
    - `build.gradle` / `build.gradle.kts` → Android/Kotlin (categories: `android`)
    - `package.json` + `playwright.config.*` present → web (categories: `web`)
    - `package.json` only → Node.js (categories: `node`)
    - `pyproject.toml` / `requirements.txt` → Python (categories: `python`)
-   - Any `.swift` files → generic Swift fallback (categories: `swift`)
+   - Any `.swift` files → generic Swift fallback (categories: `swift`, `xcode`)
 
 2. **Create directory structure**:
    ```
@@ -33,6 +33,7 @@ New projects created from `apple-project-template` already have all of this.
    # Category names match directories under rules/ in artemisia-absynthium/claude-setup.
    swift
    visionos
+   xcode
    ```
 
 4. **Write `.github/workflows/sync-claude-rules.yml`** using the template below.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Central source of Claude Code rules for Swift, visionOS, and web projects, plus the `setup-project-ai` skill. Rules in `rules/` are synced into subscriber projects via GitHub Actions; the skill scaffolds subscriber projects with the sync workflow, directory structure, and category config.
+Central source of Claude Code rules for Swift, visionOS, Xcode, and web projects, plus the `setup-project-ai` skill. Rules in `rules/` are synced into subscriber projects via GitHub Actions; the skill scaffolds subscriber projects with the sync workflow, directory structure, and category config.
 
 ## No build system
 
@@ -14,7 +14,7 @@ This repo has no package manager, build step, or test suite. There is nothing to
 
 ### Rules (`rules/`)
 
-Domain-specific Claude Code rule files, split into category subdirectories: `swift/`, `visionos/`, `web/`. These are the **source of truth** — never edit them inside a subscriber repo's `.claude/rules/synced/`.
+Domain-specific Claude Code rule files, split into category subdirectories: `swift/`, `visionos/`, `web/`, `xcode/`. These are the **source of truth** — never edit them inside a subscriber repo's `.claude/rules/synced/`.
 
 Changes here flow to subscriber projects on the next weekly sync (Mondays 9am UTC) or via manual `workflow_dispatch`. Each subscriber only receives the categories listed in its `.claude/rules-sync` file.
 
@@ -46,7 +46,7 @@ swift
 visionos
 ```
 
-Available categories: `swift`, `visionos`, `web`. Add a line to opt in to a new category; remove a line to stop receiving it. The sync workflow will delete previously-synced files for removed categories.
+Available categories: `swift`, `visionos`, `web`, `xcode`. Add a line to opt in to a new category; remove a line to stop receiving it. The sync workflow will delete previously-synced files for removed categories.
 
 ## Adding a deploy key to a subscriber repo
 

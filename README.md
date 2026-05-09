@@ -1,6 +1,6 @@
 # claude-setup
 
-Central source of Claude Code rules for Swift, visionOS, and web projects, plus a project-setup skill.
+Central source of Claude Code rules for Swift, visionOS, Xcode, and web projects, plus a project-setup skill.
 
 ## What's inside
 
@@ -16,6 +16,7 @@ Generic workflow skills (planning, debugging, code review) are intentionally exc
 | `rules/swift/testing.md` | Swift Testing (`@Test`, `@Suite`, `#expect`, `#require`) |
 | `rules/visionos/realitykit.md` | RealityView lifecycle, entity rules, z-offset, attachments |
 | `rules/web/playwright.md` | Playwright test execution vs visual verification |
+| `rules/xcode/mcp-tools.md` | Xcode MCP tools for file ops, directory listing, project structure |
 
 ### Skills (`skills/`)
 
@@ -45,7 +46,7 @@ visionos
 
 The sync workflow reads this file and only rsyncs the listed directories. If the file is absent, all categories are synced (backward-compatible default). The `/setup-project-ai` skill writes this file automatically based on the detected project type.
 
-Available categories: `swift`, `visionos`, `web`, `node` (future: `android`, `python`).
+Available categories: `swift`, `visionos`, `web`, `xcode`, `node` (future: `android`, `python`).
 
 ## Adding a deploy key to a subscriber repo
 
