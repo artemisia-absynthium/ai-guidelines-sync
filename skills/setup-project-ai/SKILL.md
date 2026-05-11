@@ -176,21 +176,38 @@ New projects created from `apple-project-template` already have all of this.
 
 5. **Pre-populate `synced/` directories from upstream.** The project should be usable immediately — do not require a manual workflow trigger.
 
-   Read `.claude/rules-sync` to get the list of selected categories (skip blank lines and lines starting with `#`). Then:
+   Use the `gh` CLI to fetch files — it returns exact file content via the GitHub API and decodes base64 automatically. Do not use `WebFetch` for this step; it summarizes content instead of returning it verbatim.
 
+   **5a. Get the file tree.**
+   Run:
    ```bash
-   TMP=$(mktemp -d -t claude-setup-bootstrap-XXXXXX)
-   git clone --depth=1 https://github.com/artemisia-absynthium/claude-setup.git "$TMP"
-   # For each category from .claude/rules-sync:
-   rsync -a "$TMP/rules/<category>/" ".claude/rules/synced/<category>/"
-   # All skills are synced (no per-skill config):
-   rsync -a "$TMP/skills/" ".claude/skills/synced/"
-   rm -rf "$TMP"
+   gh api repos/artemisia-absynthium/claude-setup/git/trees/HEAD?recursive=1 \
+     --jq '[.tree[] | select(.type == "blob") | .path]'
    ```
+   This returns a JSON array of file paths. If this call fails, report the error and tell the user to trigger the workflow manually — do not continue.
 
-   Issue one `rsync` per category line. If a category directory does not exist in the upstream `rules/`, skip it with a warning and continue — do not abort.
+   **5b. Determine which paths to fetch.**
+   Read `.claude/rules-sync`, skipping blank lines and `#` comment lines. For each category listed:
+   - Collect paths that start with `rules/<category>/`
 
-   If the clone fails (offline / restricted network), report the failure explicitly and tell the user to trigger the workflow manually as a fallback. Do not leave half-populated state — if any rsync fails partway, remove what was copied so the next run is clean.
+   Always collect:
+   - Paths that start with `skills/`
+
+   If a category has no matching paths, warn and continue.
+
+   **5c. Fetch and write each file.**
+   For each collected `path`:
+   1. Fetch the raw content with:
+      ```bash
+      gh api repos/artemisia-absynthium/claude-setup/contents/<path> --jq '.content' | base64 -d
+      ```
+   2. Map to a local destination:
+      - `rules/<category>/foo.md` → `.claude/rules/synced/<category>/foo.md`
+      - `skills/<name>/SKILL.md` → `.claude/skills/synced/<name>/SKILL.md`
+   3. Ensure the parent directory exists: `Bash(mkdir -p <dir>)`
+   4. Write the file content using the `Write` tool
+
+   If any individual fetch fails, record it and continue. Report all failures at the end; the next scheduled workflow run will fill any gaps.
 
 6. **Detect the project's default branch** before writing the report. Never assume `main`.
 
