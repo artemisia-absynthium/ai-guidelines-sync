@@ -181,7 +181,7 @@ New projects created from `apple-project-template` already have all of this.
    **5a. Get the file tree.**
    Run:
    ```bash
-   gh api repos/artemisia-absynthium/claude-setup/git/trees/HEAD?recursive=1 \
+   gh api "repos/artemisia-absynthium/claude-setup/git/trees/HEAD?recursive=1" \
      --jq '[.tree[] | select(.type == "blob") | .path]'
    ```
    This returns a JSON array of file paths. If this call fails, report the error and tell the user to trigger the workflow manually — do not continue.
