@@ -18,7 +18,7 @@ final class MyViewModel {
 }
 ```
 
-Never use `ObservableObject` / `@Published`.
+Never use `ObservableObject` / `@Published`. Never use Combine or completion-handler callbacks.
 
 ## MainActor discipline
 
