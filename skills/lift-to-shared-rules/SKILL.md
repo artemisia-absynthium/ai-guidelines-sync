@@ -39,7 +39,7 @@ Invoke this skill whenever a pattern, constraint, or convention emerges that sho
    - **Contradiction**: does the new content conflict with an existing rule?
    - **Merge opportunity**: should the new content extend an existing file rather than live in a new one?
 
-   If issues are found, resolve them before proceeding — either by adjusting the new content or updating the conflicting existing file.
+   If issues are found and the resolution is clear, apply it before proceeding — either by adjusting the new content or updating the conflicting existing file. If the resolution is ambiguous, stop and ask the user how to proceed before making any further changes.
 
 4. **Show the diff**
 
