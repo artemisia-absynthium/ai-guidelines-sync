@@ -9,10 +9,11 @@ Invoke this skill whenever a pattern, constraint, or convention emerges that sho
 1. **Identify target**
 
    Determine the category and file:
-   - Categories: `swift`, `visionos`, `xcode`, `mac`, `android`, `web`
+   - Known categories: `swift`, `visionos`, `xcode`, `mac`, `android`, `web`
    - Map the rule to the most specific applicable category
    - Target file: `~/Developer/claude-setup/rules/<category>/<topic>.md`
-   - If no existing file fits, create a new one with a descriptive name
+   - If no existing file fits within a category, create a new one with a descriptive name
+   - If the rule belongs to a stack not yet represented (e.g. `python`, `java`), create the new category directory and add the file — do not force-fit it into an existing category
 
 2. **Write the change**
 
