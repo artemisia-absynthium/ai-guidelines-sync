@@ -46,7 +46,9 @@ swift
 visionos
 ```
 
-Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`. Add a line to opt in to a new category; remove a line to stop receiving it. The sync workflow will delete previously-synced files for removed categories.
+Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `android`, `workflow`. Add a line to opt in to a new category; remove a line to stop receiving it. The sync workflow will delete previously-synced files for removed categories.
+
+The `workflow` category is always synced regardless of `.claude/rules-sync` — it is hardcoded into the workflow's rsync step and cannot be opted out of.
 
 ## Adding a deploy key to a subscriber repo
 

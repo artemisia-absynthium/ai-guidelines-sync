@@ -20,6 +20,7 @@ Generic workflow skills (planning, debugging, code review) are intentionally exc
 | `rules/web/playwright.md` | Playwright test execution vs visual verification |
 | `rules/xcode/mcp-tools.md` | Xcode MCP tools for file ops, build, test, preview |
 | `rules/xcode/packages.md` | SPM only; no CocoaPods or Carthage |
+| `rules/workflow/contributing.md` | Cross-project rule contribution — invoke `lift-to-shared-rules` proactively |
 
 ### Skills (`skills/`)
 
@@ -49,7 +50,9 @@ visionos
 
 The sync workflow reads this file and only rsyncs the listed directories. If the file is absent, all categories are synced (backward-compatible default). The `/setup-project-ai` skill writes this file automatically based on the detected project type.
 
-Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `node` (future: `android`, `python`).
+Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `android`, `workflow` (future: `python`).
+
+The `workflow` category is always synced to every subscriber project regardless of `.claude/rules-sync` config — it contains process rules (like the rule to proactively lift patterns upstream) that must not be opt-out.
 
 ## Adding a deploy key to a subscriber repo
 

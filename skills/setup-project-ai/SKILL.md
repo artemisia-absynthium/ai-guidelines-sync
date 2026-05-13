@@ -126,7 +126,7 @@ New projects created from `apple-project-template` already have all of this.
                rsync -av --delete "$RULES_SRC/" "$RULES_DST/"
              else
                echo "Reading categories from $CONFIG_FILE"
-               RSYNC_ARGS=()
+               RSYNC_ARGS=(--include="workflow/***")  # always sync — behavioral trigger must not be opt-out
                while IFS= read -r line || [[ -n "$line" ]]; do
                  line="${line#"${line%%[![:space:]]*}"}"
                  line="${line%"${line##*[![:space:]]}"}"
