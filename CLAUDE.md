@@ -20,19 +20,19 @@ Changes here flow to subscriber projects on the next weekly sync (Mondays 9am UT
 
 ### Skill (`skills/setup-project-ai/SKILL.md`)
 
-One-shot scaffolding skill: detects project type, creates `.claude/rules/synced/` and `.claude/skills/synced/` directories, writes `.claude/rules-sync` with the appropriate categories, and writes the sync workflow. It does **not** touch existing files in `.claude/rules/` or `.claude/skills/` outside of `synced/`, an existing `.claude/rules-sync`, other workflows, `CLAUDE.md`, or source files.
+One-shot scaffolding skill: detects project type, creates `.claude/rules/synced/` directory, writes `.claude/rules-sync` with the appropriate categories, and writes the sync workflow. Skills are synced directly into `.claude/skills/<name>/` (not a `synced/` subdirectory — Claude Code only discovers skills one level deep). It does **not** touch existing project-local skills, an existing `.claude/rules-sync`, other workflows, `CLAUDE.md`, or source files.
 
-To bootstrap on a new machine: copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md`. After the skill runs in a subscriber repo and the workflow is triggered once, skills are committed to `.claude/skills/synced/` and available team-wide — no per-machine setup needed after that.
+To bootstrap on a new machine: copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md`. After the skill runs in a subscriber repo, skills are committed to `.claude/skills/<name>/` and available team-wide — no per-machine setup needed after that.
 
 ### Design invariant
 
-Any directory the sync workflow writes to must be `*/synced/`. Everything else in `.claude/rules/` and `.claude/skills/` is project-owned and never touched by sync. Never sync into a directory that teams might also write to directly.
+Rules sync writes to `.claude/rules/synced/` — a dedicated managed directory, never written to by project teams. Skills sync writes directly into `.claude/skills/<name>/` alongside project-local skills; `--no-delete` ensures local skills are preserved.
 
 ### Sync model
 
 Subscriber repos run a GitHub Actions workflow that checks out `artemisia-absynthium/claude-setup` and:
 - Selectively rsyncs rule categories into `.claude/rules/synced/` (controlled by `.claude/rules-sync`)
-- Rsyncs all skills into `.claude/skills/synced/` (no config needed — all skills are synced)
+- Rsyncs all skills directly into `.claude/skills/<name>/` with `--no-delete` (no config needed — all skills are synced; project-local skills are preserved)
 
 If `.claude/rules-sync` is absent, all rule categories are synced (backward-compatible default).
 
@@ -46,9 +46,9 @@ swift
 visionos
 ```
 
-Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `android`, `workflow`. Add a line to opt in to a new category; remove a line to stop receiving it. The sync workflow will delete previously-synced files for removed categories.
+Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `android`, `python`. Add a line to opt in to a new category; remove a line to stop receiving it. The sync workflow will delete previously-synced files for removed categories.
 
-The `workflow` category is always synced regardless of `.claude/rules-sync` — it is hardcoded into the workflow's rsync step and cannot be opted out of.
+Do not add `workflow` to `rules-sync` — it is always synced regardless and listing it has no effect.
 
 ## Adding a deploy key to a subscriber repo
 
@@ -59,4 +59,4 @@ The `workflow` category is always synced regardless of `.claude/rules-sync` — 
 4. `cat /tmp/claude_rules_deploy_key | pbcopy` — copies private key to clipboard
    Subscriber repo → Settings → Secrets → Actions → `CLAUDE_RULES_DEPLOY_KEY` → paste private key
 5. Delete `/tmp/claude_rules_deploy_key*` when done
-6. Trigger the sync workflow manually once via the Actions tab to populate `rules/synced/` and `skills/synced/`
+6. Trigger the sync workflow manually once via the Actions tab to populate `rules/synced/` and `.claude/skills/`

@@ -27,6 +27,7 @@ Generic workflow skills (planning, debugging, code review) are intentionally exc
 | Skill | What it does |
 |-------|-------------|
 | `setup-project-ai` | Scaffolds an existing repo with the sync workflow, `rules/synced/` directory, and category config |
+| `lift-to-shared-rules` | Proposes a new rule upstream to this repo — detects pattern, writes a rule file, opens a PR |
 
 To bootstrap on a new machine, copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md`. After `/setup-project-ai` runs in a subscriber repo, skills are committed directly to `.claude/skills/<name>/` and available team-wide — no per-machine setup needed. User-level copies at `~/.claude/skills/<name>/` take precedence over project-level copies of the same name.
 
@@ -50,9 +51,9 @@ visionos
 
 The sync workflow reads this file and only rsyncs the listed directories. If the file is absent, all categories are synced (backward-compatible default). The `/setup-project-ai` skill writes this file automatically based on the detected project type.
 
-Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `android`, `workflow` (future: `python`).
+Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `android`, `python`.
 
-The `workflow` category is always synced to every subscriber project regardless of `.claude/rules-sync` config — it contains process rules (like the rule to proactively lift patterns upstream) that must not be opt-out.
+The `workflow` category is always synced to every subscriber project regardless of `.claude/rules-sync` config — do not add it to `rules-sync`, it has no effect.
 
 ## Adding a deploy key to a subscriber repo
 
