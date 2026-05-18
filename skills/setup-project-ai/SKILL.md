@@ -49,7 +49,7 @@ New projects created from `apple-project-template` already have all of this.
    [[ -f .claude/rules-sync ]] && echo "rules-sync: EXISTS" || echo "rules-sync: MISSING"
    [[ -f .github/workflows/sync-claude-rules.yml ]] && echo "workflow: EXISTS" || echo "workflow: MISSING"
    [[ -d .claude/rules/synced ]] && echo "rules/synced: EXISTS" || echo "rules/synced: MISSING"
-   [[ -d .claude/skills/synced ]] && echo "skills/synced (LEGACY — will be migrated): EXISTS" || echo "skills/synced: MISSING — OK"
+   [[ -d .claude/skills ]] && echo "skills: EXISTS" || echo "skills: MISSING"
    ```
 
    Record results. All subsequent steps are conditional on this audit output, not on assumptions from Step 1.
@@ -60,7 +60,7 @@ New projects created from `apple-project-template` already have all of this.
    .github/workflows/       ← if not already present
    ```
 
-   Skills are synced directly into `.claude/skills/<name>/` (not a `synced/` subdirectory). Claude Code only discovers skills one level deep — `.claude/skills/<name>/SKILL.md`. If `.claude/skills/synced/` exists from a previous setup, the migration step in the workflow removes it automatically.
+   Skills are synced directly into `.claude/skills/<name>/` (not a `synced/` subdirectory). Claude Code only discovers skills one level deep — `.claude/skills/<name>/SKILL.md`.
 
    Do not create `.gitkeep` or any other placeholder file inside these directories. They are populated in Step 5 below; an empty directory is acceptable until then.
 
@@ -104,26 +104,6 @@ New projects created from `apple-project-template` already have all of this.
            with:
              repository: artemisia-absynthium/claude-setup
              path: .tmp-claude-rules
-
-         - name: Migrate legacy directories (one-time)
-           run: |
-             # rules: shared/ → synced/ (old naming convention)
-             if [[ -d ".claude/rules/shared" && ! -d ".claude/rules/synced" ]]; then
-               mv ".claude/rules/shared" ".claude/rules/synced"
-               echo "Migrated .claude/rules/shared → .claude/rules/synced"
-             fi
-             # skills: synced/ is wrong depth — move contents up to .claude/skills/ and delete synced/
-             if [[ -d ".claude/skills/synced" ]]; then
-               for skill_dir in .claude/skills/synced/*/; do
-                 skill_name=$(basename "$skill_dir")
-                 if [[ ! -d ".claude/skills/$skill_name" ]]; then
-                   mv "$skill_dir" ".claude/skills/$skill_name"
-                   echo "Migrated .claude/skills/synced/$skill_name → .claude/skills/$skill_name"
-                 fi
-               done
-               rm -rf ".claude/skills/synced"
-               echo "Removed .claude/skills/synced/"
-             fi
 
          - name: Sync rules into synced/
            run: |
