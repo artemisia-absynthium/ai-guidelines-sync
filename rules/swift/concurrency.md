@@ -33,7 +33,7 @@ Task { @MainActor in self.isLoading = false }
 
 ## Async closures and capture lists
 
-Async closures that capture `self` always use `[weak self]`:
+Async closures that capture `self` always use `[weak self]`. Always annotate `@MainActor` explicitly — do not rely on inference from the enclosing method, which can silently break if isolation changes:
 
 ```swift
 Task { @MainActor [weak self] in
