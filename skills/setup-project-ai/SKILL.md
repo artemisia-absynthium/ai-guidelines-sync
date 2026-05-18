@@ -49,7 +49,7 @@ New projects created from `apple-project-template` already have all of this.
    [[ -f .claude/rules-sync ]] && echo "rules-sync: EXISTS" || echo "rules-sync: MISSING"
    [[ -f .github/workflows/sync-claude-rules.yml ]] && echo "workflow: EXISTS" || echo "workflow: MISSING"
    [[ -d .claude/rules/synced ]] && echo "rules/synced: EXISTS" || echo "rules/synced: MISSING"
-   [[ -d .claude/skills/synced ]] && echo "skills/synced: EXISTS" || echo "skills/synced: MISSING"
+   [[ -d .claude/skills/synced ]] && echo "skills/synced (LEGACY — will be migrated): EXISTS" || echo "skills/synced: MISSING — OK"
    ```
 
    Record results. All subsequent steps are conditional on this audit output, not on assumptions from Step 1.
@@ -57,9 +57,10 @@ New projects created from `apple-project-template` already have all of this.
 3. **Create directory structure**:
    ```
    .claude/rules/synced/    ← managed by sync workflow, do not edit
-   .claude/skills/synced/   ← managed by sync workflow, do not edit
    .github/workflows/       ← if not already present
    ```
+
+   Skills are synced directly into `.claude/skills/<name>/` (not a `synced/` subdirectory). Claude Code only discovers skills one level deep — `.claude/skills/<name>/SKILL.md`. If `.claude/skills/synced/` exists from a previous setup, the migration step in the workflow removes it automatically.
 
    Do not create `.gitkeep` or any other placeholder file inside these directories. They are populated in Step 5 below; an empty directory is acceptable until then.
 
@@ -104,14 +105,25 @@ New projects created from `apple-project-template` already have all of this.
              repository: artemisia-absynthium/claude-setup
              path: .tmp-claude-rules
 
-         - name: Migrate shared/ to synced/ (one-time)
+         - name: Migrate legacy directories (one-time)
            run: |
-             for dir in ".claude/rules" ".claude/skills"; do
-               if [[ -d "$dir/shared" && ! -d "$dir/synced" ]]; then
-                 mv "$dir/shared" "$dir/synced"
-                 echo "Migrated $dir/shared → $dir/synced"
-               fi
-             done
+             # rules: shared/ → synced/ (old naming convention)
+             if [[ -d ".claude/rules/shared" && ! -d ".claude/rules/synced" ]]; then
+               mv ".claude/rules/shared" ".claude/rules/synced"
+               echo "Migrated .claude/rules/shared → .claude/rules/synced"
+             fi
+             # skills: synced/ is wrong depth — move contents up to .claude/skills/ and delete synced/
+             if [[ -d ".claude/skills/synced" ]]; then
+               for skill_dir in .claude/skills/synced/*/; do
+                 skill_name=$(basename "$skill_dir")
+                 if [[ ! -d ".claude/skills/$skill_name" ]]; then
+                   mv "$skill_dir" ".claude/skills/$skill_name"
+                   echo "Migrated .claude/skills/synced/$skill_name → .claude/skills/$skill_name"
+                 fi
+               done
+               rm -rf ".claude/skills/synced"
+               echo "Removed .claude/skills/synced/"
+             fi
 
          - name: Sync rules into synced/
            run: |
@@ -151,12 +163,13 @@ New projects created from `apple-project-template` already have all of this.
                  "$RULES_SRC/" "$RULES_DST/"
              fi
 
-         - name: Sync skills into .claude/skills/synced/
+         - name: Sync skills into .claude/skills/
            run: |
              SKILLS_SRC=".tmp-claude-rules/skills"
-             SKILLS_DST=".claude/skills/synced"
+             SKILLS_DST=".claude/skills"
              mkdir -p "$SKILLS_DST"
-             rsync -av --delete "$SKILLS_SRC/" "$SKILLS_DST/"
+             # No --delete: project-local skills alongside synced ones must not be removed
+             rsync -av "$SKILLS_SRC/" "$SKILLS_DST/"
              rm -rf .tmp-claude-rules
 
          - name: Commit and push if changed
@@ -165,7 +178,7 @@ New projects created from `apple-project-template` already have all of this.
            run: |
              git config user.name "github-actions[bot]"
              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-             git add .claude/rules/synced .claude/skills/synced
+             git add .claude/rules/synced .claude/skills
              if git diff --cached --quiet; then
                echo "No changes — nothing to commit"
              else
@@ -203,7 +216,7 @@ New projects created from `apple-project-template` already have all of this.
       ```
    2. Map to a local destination:
       - `rules/<category>/foo.md` → `.claude/rules/synced/<category>/foo.md`
-      - `skills/<name>/SKILL.md` → `.claude/skills/synced/<name>/SKILL.md`
+      - `skills/<name>/SKILL.md` → `.claude/skills/<name>/SKILL.md`
    3. Ensure the parent directory exists: `Bash(mkdir -p <dir>)`
    4. Write the file content using the `Write` tool
 
@@ -220,7 +233,7 @@ New projects created from `apple-project-template` already have all of this.
 
 7. **Report** to the user. Stay strictly within the skill's scope:
 
-   - **List what was created.** Only files this skill writes: the two `synced/` directories (now populated), `.claude/rules-sync` (if newly written), and `.github/workflows/sync-claude-rules.yml`.
+   - **List what was created.** Only files this skill writes: `.claude/rules/synced/` (now populated), skills written to `.claude/skills/<name>/`, `.claude/rules-sync` (if newly written), and `.github/workflows/sync-claude-rules.yml`.
    - **List what was skipped (already existed).** Only enumerate files this skill is responsible for — i.e. `.claude/rules-sync` if it pre-existed. Never report on `.claude/settings.json`, `.claude/settings.local.json`, `CLAUDE.md`, or anything else outside the skill's scope.
    - **Next steps**, in order:
 
@@ -239,14 +252,14 @@ New projects created from `apple-project-template` already have all of this.
      2. Run `/init` in the project root to generate or refresh `CLAUDE.md` with codebase context.
      3. Edit `.claude/rules-sync` if the detected categories need adjusting.
 
-     The next scheduled run (Mondays 09:00 UTC) or any manual `workflow_dispatch` will keep `synced/` up to date from then on. **Do not** instruct the user to trigger the workflow manually for first-time population — Step 5 already populated it.
+     The next scheduled run (Mondays 09:00 UTC) or any manual `workflow_dispatch` will keep `.claude/rules/synced/` and `.claude/skills/` up to date from then on. **Do not** instruct the user to trigger the workflow manually for first-time population — Step 5 already populated it.
 
 ## What this skill does NOT touch
 
-- Any existing files in `.claude/rules/` or `.claude/skills/` outside of `synced/`
+- Any existing project-local skills in `.claude/skills/` that were not synced from upstream
 - Any existing `.github/workflows/` files **other than** `sync-claude-rules.yml` (that file is always overwritten to pick up template updates)
 - An existing `.claude/rules-sync` file (skip if present to preserve manual edits)
 - `CLAUDE.md`, `README.md`, or any source files
 - `.claude/settings.json`, `.claude/settings.local.json`, or any other settings file
 
-The run report must not enumerate, comment on, or report the status of any file outside the skill's own scope (the `synced/` directories, `.claude/rules-sync`, and `sync-claude-rules.yml`). In particular, never mention `.claude/settings.json` or `.claude/settings.local.json` — they are not the skill's concern.
+The run report must not enumerate, comment on, or report the status of any file outside the skill's own scope (`.claude/rules/synced/`, `.claude/skills/<name>/` files written from upstream, `.claude/rules-sync`, and `sync-claude-rules.yml`). In particular, never mention `.claude/settings.json` or `.claude/settings.local.json` — they are not the skill's concern.

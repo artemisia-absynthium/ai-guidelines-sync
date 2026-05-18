@@ -26,9 +26,9 @@ Generic workflow skills (planning, debugging, code review) are intentionally exc
 
 | Skill | What it does |
 |-------|-------------|
-| `setup-project-ai` | Scaffolds an existing repo with the sync workflow, `synced/` directories for rules and skills, and category config |
+| `setup-project-ai` | Scaffolds an existing repo with the sync workflow, `rules/synced/` directory, and category config |
 
-To bootstrap on a new machine, copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md`. After `/setup-project-ai` runs in a subscriber repo and the workflow is triggered once, skills are committed to `.claude/skills/synced/` and available team-wide — no per-machine setup needed.
+To bootstrap on a new machine, copy `skills/setup-project-ai/SKILL.md` to `~/.claude/skills/setup-project-ai/SKILL.md`. After `/setup-project-ai` runs in a subscriber repo, skills are committed directly to `.claude/skills/<name>/` and available team-wide — no per-machine setup needed. User-level copies at `~/.claude/skills/<name>/` take precedence over project-level copies of the same name.
 
 ## Using rules in a project
 
@@ -63,4 +63,4 @@ The sync workflow pushes directly to the default branch bypassing branch protect
 3. Subscriber repo → Settings → Branches → edit the default branch protection rule → add the deploy key to the bypass list
 4. Subscriber repo → Settings → Secrets → Actions → New secret → `CLAUDE_RULES_DEPLOY_KEY` → paste private key
 5. Delete `/tmp/claude_rules_deploy_key*` when done
-6. Trigger the sync workflow manually once via the Actions tab to populate `rules/synced/` and `skills/synced/`
+6. Trigger the sync workflow manually once via the Actions tab to populate `rules/synced/` and `.claude/skills/`
