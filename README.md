@@ -11,10 +11,16 @@ Generic workflow skills (planning, debugging, code review) are intentionally exc
 
 | File | Covers |
 |------|--------|
+| `rules/swift/analytics.md` | Firebase Analytics screen view tracking in SwiftUI |
 | `rules/swift/code-style.md` | Logger, file headers, import order, naming, SwiftLint |
 | `rules/swift/concurrency.md` | `@MainActor`, `@Observable`, async patterns, Task discipline |
+| `rules/swift/state-management.md` | `Loadable<T>` pattern, error surfacing rules, retry design |
 | `rules/swift/swiftui.md` | View structure, adaptive layouts, state ownership, previews |
 | `rules/swift/testing.md` | Swift Testing (`@Test`, `@Suite`, `#expect`, `#require`); UI tests use XCTest |
+| `rules/android/code-style.md` | No force non-null, `Result<T>` at boundaries, companion object constants |
+| `rules/android/compose.md` | State management, lifecycle-aware collection, UI state coverage order |
+| `rules/android/room.md` | Room — `Flow<T>` from DAOs, KSP, explicit migrations, schema export |
+| `rules/android/testing.md` | JUnit 4, Robolectric, MockK, Turbine for Flow assertions |
 | `rules/mac/affordances.md` | Mac app affordances — menus, keyboard shortcuts, windows, native chrome |
 | `rules/visionos/realitykit.md` | RealityView lifecycle, entity rules, z-offset, attachments |
 | `rules/web/playwright.md` | Playwright test execution vs visual verification |
@@ -51,7 +57,7 @@ visionos
 
 The sync workflow reads this file and only rsyncs the listed directories. If the file is absent, all categories are synced (backward-compatible default). The `/setup-project-ai` skill writes this file automatically based on the detected project type.
 
-Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `android`, `python`.
+Available categories: `swift`, `mac`, `visionos`, `web`, `xcode`, `android` (future: `python`).
 
 The `workflow` category is always synced to every subscriber project regardless of `.claude/rules-sync` config — do not add it to `rules-sync`, it has no effect.
 
