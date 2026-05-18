@@ -79,5 +79,6 @@ When removing code, delete it. Never comment it out.
 | `implicit_return` | Add explicit `return` where required |
 | `multiline_arguments` | Each argument on its own line when breaking |
 | `multiline_parameters` | Each parameter on its own line when breaking |
+| `function_body_length` | Limit is 50 lines. A violation is a code smell — decompose into smaller, focused functions. Do not recover the line count with cosmetic tricks (collapsing lines, dropping trailing commas). |
 
 Run `swiftlint <TargetName>` before submitting any Swift change.
