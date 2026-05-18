@@ -11,11 +11,14 @@ Run the following checks and set mode before doing anything else:
 ```bash
 echo "${CLAUDE_SETUP_PATH:-UNSET}"
 [[ -n "$CLAUDE_SETUP_PATH" && -d "$CLAUDE_SETUP_PATH/.git" ]] && echo "DIR: OK" || echo "DIR: MISSING"
-gh api repos/artemisia-absynthium/claude-setup --jq '.permissions.push' 2>/dev/null
+git -C "$CLAUDE_SETUP_PATH" remote -v 2>/dev/null | head -4
+git -C "$CLAUDE_SETUP_PATH" push --dry-run 2>&1 | tail -1
 ```
 
-- **Owner mode**: `CLAUDE_SETUP_PATH` is set, the directory exists, and push permission is `true`. Work is done directly in `$CLAUDE_SETUP_PATH`.
-- **Contributor mode**: any condition fails — env var unset, directory missing, or no push access. State which condition triggered contributor mode, then proceed with the fork/PR flow (Step 6b).
+- **Owner mode**: `CLAUDE_SETUP_PATH` is set, the directory exists, and the dry-run push succeeds (exit 0 / "Everything up-to-date"). Work is done directly in `$CLAUDE_SETUP_PATH`.
+- **Contributor mode**: any condition fails — env var unset, directory missing, or dry-run push is rejected. State which condition triggered contributor mode, then proceed with the fork/PR flow (Step 6b).
+
+Do not use `gh api` to check push permission — it reads the permission field for the authenticated `gh` account, which may differ from the SSH identity used by the repo's git remote.
 
 ## Step 1 — Identify target
 
