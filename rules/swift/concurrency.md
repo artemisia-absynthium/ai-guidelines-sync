@@ -62,3 +62,14 @@ state changes belongs in a view model method, called from `.task { }` or a butto
 ## Swift 6 actor isolation
 
 Do not add `@preconcurrency` or `nonisolated` to silence compiler errors without understanding the isolation boundary. Both suppress checks that exist to prevent data races — find and fix the real crossing instead.
+
+## Inter-component communication
+
+Do not use `NotificationCenter` for in-app events. It bypasses type safety, couples unrelated components through a global name-based bus, and works against Swift 6's data-race model.
+
+Prefer in order of fit:
+- **Direct `async throws` call** — when the caller already holds a reference to the callee
+- **`@Observable` property** — when the receiver needs to observe state it can already access
+- **Typed `PassthroughSubject<T, Never>`** — when one-to-many broadcast is genuinely needed (e.g. bridging a delegate callback to multiple subscribers)
+
+`NotificationCenter` is only acceptable for framework-mandated system broadcasts (`EAAccessory`, `UIApplication`, `UIDevice`, etc.) that have no Swift alternative.
