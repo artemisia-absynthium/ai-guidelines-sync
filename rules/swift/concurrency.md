@@ -18,7 +18,13 @@ final class MyViewModel {
 }
 ```
 
-Never use `ObservableObject` / `@Published`. Never use Combine or completion-handler callbacks.
+Never use `ObservableObject` / `@Published`. Never use Combine or completion-handler callbacks for
+state management or concurrency — use `@Observable` and async/await instead.
+
+Combine is acceptable where it genuinely fits and async/await would be more verbose: reactive KVO
+observation (e.g. `UserDefaults.publisher(for:)`), multi-publisher merging, or bridging legacy
+delegate patterns into a stream. If you reach for Combine, add a one-line comment explaining why
+async/await is the worse fit in that specific case.
 
 ## MainActor discipline
 
