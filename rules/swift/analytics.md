@@ -31,18 +31,19 @@ struct SettingsView: View {
 }
 ```
 
-For views that branch on `if #available`, add the modifier inside **each branch**:
+For views that branch on `if #available`, wrap the branch in a `Group` and apply common modifiers — including `.analyticsScreen` — to the `Group`:
 
 ```swift
 var body: some View {
-    if #available(iOS 16, *) {
-        content
-            .scrollDismissesKeyboard(.immediately)
-            .analyticsScreen(name: AnalyticsScreenFoo)
-    } else {
-        content
-            .analyticsScreen(name: AnalyticsScreenFoo)
+    Group {
+        if #available(iOS 16, *) {
+            content
+                .scrollDismissesKeyboard(.immediately)
+        } else {
+            content
+        }
     }
+    .analyticsScreen(name: AnalyticsScreenFoo)
 }
 ```
 
@@ -50,7 +51,7 @@ var body: some View {
 
 Define all screen name strings as named constants in one place (e.g. a `StringExtension.swift` or `AnalyticsConstants.swift` file), following the project's analytics naming convention. Use snake_case string values.
 
-Example convention used in `example-project`:
+Example convention:
 
 ```swift
 // prefix: AnalyticsAppScreen*, values: snake_case

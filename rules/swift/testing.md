@@ -17,7 +17,7 @@ import Testing
 @Suite("ItemListViewModel")
 struct ItemListViewModelTests {
 
-    @Test("loads product descriptor from JSON")
+    @Test("loads item descriptor from JSON")
     func loadsDescriptor() async throws {
         let viewModel = ItemListViewModel()
         let object = try #require(await viewModel.load())
