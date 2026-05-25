@@ -1,6 +1,5 @@
 ---
-description: Warning discipline — zero compiler warnings policy and SwiftLint suppression rules
-globs:
+paths:
   - "**/*.swift"
   - "**/*.xcodeproj/**"
 ---

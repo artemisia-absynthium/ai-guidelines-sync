@@ -1,6 +1,5 @@
 ---
-description: Android testing conventions — JUnit 4, Robolectric, MockK, Turbine for Flow assertions
-globs:
+paths:
   - "**/*.kt"
 ---
 

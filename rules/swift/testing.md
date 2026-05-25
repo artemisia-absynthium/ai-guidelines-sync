@@ -1,6 +1,5 @@
 ---
-description: Swift Testing framework — @Test, @Suite, #expect, #require. Not XCTest.
-globs:
+paths:
   - "**/*Tests*/**/*.swift"
   - "**/*Test.swift"
 ---

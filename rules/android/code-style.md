@@ -1,6 +1,5 @@
 ---
-description: Kotlin/Android code style — no force non-null, Result<T> at boundaries, companion object constants
-globs:
+paths:
   - "**/*.kt"
 ---
 

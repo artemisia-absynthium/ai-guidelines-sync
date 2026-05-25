@@ -1,7 +1,9 @@
 ---
-description: Swift async state management — the Loadable<T> pattern, usage, and design rules
-globs:
-  - "**/*.swift"
+paths:
+  - "**/*ViewModel*.swift"
+  - "**/*Model*.swift"
+  - "**/*Repository*.swift"
+  - "**/*State*.swift"
 ---
 
 # Swift Async State Management

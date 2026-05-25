@@ -1,6 +1,5 @@
 ---
-description: Asset loading — prefer type-safe ImageResource over string-based lookups for images
-globs:
+paths:
   - "**/*.swift"
 ---
 

@@ -1,6 +1,5 @@
 ---
-description: SwiftUI conventions — view structure, adaptive layouts, state ownership, previews
-globs:
+paths:
   - "**/*.swift"
 ---
 

@@ -1,3 +1,9 @@
+---
+paths:
+  - "**/*View*.swift"
+  - "**/*Screen*.swift"
+---
+
 # Firebase Analytics — Screen View Tracking
 
 When `FirebaseAnalytics` is a dependency in a SwiftUI project, every navigable **screen** must log a `screen_view` event.

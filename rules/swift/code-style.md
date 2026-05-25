@@ -1,6 +1,5 @@
 ---
-description: Swift code style — Logger, file headers, import grouping, naming, access control, SwiftLint
-globs:
+paths:
   - "**/*.swift"
 ---
 

@@ -1,6 +1,5 @@
 ---
-description: Room database conventions — Flow<T> from DAOs, KSP, explicit migrations, schema export
-globs:
+paths:
   - "**/*.kt"
 ---
 

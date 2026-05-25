@@ -1,6 +1,5 @@
 ---
-description: Jetpack Compose conventions — state management, lifecycle-aware collection, call formatting, UI state coverage
-globs:
+paths:
   - "**/*.kt"
 ---
 

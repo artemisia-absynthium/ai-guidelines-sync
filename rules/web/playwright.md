@@ -1,6 +1,5 @@
 ---
-description: Playwright — test execution vs visual verification
-globs:
+paths:
   - "**/*.spec.ts"
   - "**/*.spec.js"
   - "**/*.spec.tsx"

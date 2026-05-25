@@ -1,6 +1,5 @@
 ---
-description: Xcode MCP tool usage — file operations, directory listing, project structure
-globs:
+paths:
   - "**/*.swift"
   - "**/*.xcodeproj/**"
 ---

@@ -1,6 +1,5 @@
 ---
-description: Swift concurrency — @MainActor, @Observable, async/await patterns
-globs:
+paths:
   - "**/*.swift"
 ---
 
