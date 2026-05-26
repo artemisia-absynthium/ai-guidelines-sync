@@ -73,40 +73,53 @@ pick_day() {
         return
     fi
 
-    echo -e "${BOLD}Select sync day (↑↓ to move, Enter to confirm):${NC}"
-    local cursor=0 key key2
+    echo -e "${BOLD}Select sync day (↑↓ navigate, Enter/Space select, arrow to Confirm):${NC}"
+    local cursor=0 selected=0 key key2  # pre-select Monday
     local i
+    local total=$(( ${#days[@]} + 1 ))  # days + Confirm row
 
     tput civis 2>/dev/null || true
     for i in "${!days[@]}"; do
-        printf "    %s\n" "${days[$i]}"
+        printf "    [ ] %s\n" "${days[$i]}"
     done
+    printf "    [ Confirm ]\n"
 
     while true; do
-        tput cuu ${#days[@]} 2>/dev/null || true
+        tput cuu $total 2>/dev/null || true
         for i in "${!days[@]}"; do
+            local mark=" "
+            [ "$i" -eq "$selected" ] && mark="✓"
             if [ "$i" -eq "$cursor" ]; then
-                printf "  \033[1;32m▶ %s\033[0m\n" "${days[$i]}"
+                printf "  \033[1;32m▶ [%s] %s\033[0m\n" "$mark" "${days[$i]}"
             else
-                printf "    %s\n" "${days[$i]}"
+                printf "    [%s] %s\n" "$mark" "${days[$i]}"
             fi
         done
+        if [ "$cursor" -eq "${#days[@]}" ]; then
+            printf "  \033[1;32m▶ [ Confirm ]\033[0m\n"
+        else
+            printf "    [ Confirm ]\n"
+        fi
 
         IFS= read -r -s -n 1 key </dev/tty
         if [[ "$key" == $'\x1b' ]]; then
             IFS= read -r -s -n 2 key2 </dev/tty 2>/dev/null || key2=""
             case "$key2" in
                 '[A') [ "$cursor" -gt 0 ] && ((cursor--)) || true ;;
-                '[B') [ "$cursor" -lt $((${#days[@]} - 1)) ] && ((cursor++)) || true ;;
+                '[B') [ "$cursor" -lt $(( total - 1 )) ] && ((cursor++)) || true ;;
             esac
-        elif [[ "$key" == "" ]]; then
-            break
+        elif [[ "$key" == "" || "$key" == " " ]]; then
+            if [ "$cursor" -eq "${#days[@]}" ]; then
+                break  # Confirm row — proceed
+            else
+                selected=$cursor  # Mark this day
+            fi
         fi
     done
 
     tput cnorm 2>/dev/null || true
-    SELECTED_DAY_NAME="${days[$cursor]}"
-    SELECTED_DAY_CRON="${crons[$cursor]}"
+    SELECTED_DAY_NAME="${days[$selected]}"
+    SELECTED_DAY_CRON="${crons[$selected]}"
     echo -e "\n${GREEN}✓ Sync day: ${SELECTED_DAY_NAME}${NC}"
 }
 
@@ -119,15 +132,18 @@ pick_repos() {
 
     for i in "${!repos[@]}"; do sel[$i]=0; done
 
-    echo -e "${BOLD}Select repositories (↑↓ to move, Space to toggle, Enter to confirm):${NC}"
+    echo -e "${BOLD}Select repositories (↑↓ navigate, Enter/Space toggle, arrow to Confirm):${NC}"
     tput civis 2>/dev/null || true
+
+    local total=$(( ${#repos[@]} + 1 ))  # repos + Confirm row
 
     for i in "${!repos[@]}"; do
         printf "    [ ] %s\n" "${repos[$i]}"
     done
+    printf "    [ Confirm ]\n"
 
     while true; do
-        tput cuu ${#repos[@]} 2>/dev/null || true
+        tput cuu $total 2>/dev/null || true
         for i in "${!repos[@]}"; do
             local mark=" "
             [ "${sel[$i]}" -eq 1 ] && mark="✓"
@@ -137,18 +153,25 @@ pick_repos() {
                 printf "    [%s] %s\n" "$mark" "${repos[$i]}"
             fi
         done
+        if [ "$cursor" -eq "${#repos[@]}" ]; then
+            printf "  \033[1;32m▶ [ Confirm ]\033[0m\n"
+        else
+            printf "    [ Confirm ]\n"
+        fi
 
         IFS= read -r -s -n 1 key </dev/tty
         if [[ "$key" == $'\x1b' ]]; then
             IFS= read -r -s -n 2 key2 </dev/tty 2>/dev/null || key2=""
             case "$key2" in
                 '[A') [ "$cursor" -gt 0 ] && ((cursor--)) || true ;;
-                '[B') [ "$cursor" -lt $((${#repos[@]} - 1)) ] && ((cursor++)) || true ;;
+                '[B') [ "$cursor" -lt $(( total - 1 )) ] && ((cursor++)) || true ;;
             esac
-        elif [[ "$key" == " " ]]; then
-            sel[$cursor]=$((1 - sel[$cursor]))
-        elif [[ "$key" == "" ]]; then
-            break
+        elif [[ "$key" == "" || "$key" == " " ]]; then
+            if [ "$cursor" -eq "${#repos[@]}" ]; then
+                break  # Confirm row — proceed
+            else
+                sel[$cursor]=$(( 1 - sel[$cursor] ))  # Toggle
+            fi
         fi
     done
 
