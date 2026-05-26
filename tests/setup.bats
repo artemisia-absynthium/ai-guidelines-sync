@@ -199,8 +199,6 @@ _merge_hook() {
   _merge_hook "$settings"
   count_after_first=$(jq '.hooks.PreToolUse | length' "$settings")
 
-  # setup_project checks for "rules/synced" before merging
-  grep -q "rules/synced" "$settings"
   if ! grep -q "rules/synced" "$settings"; then
     _merge_hook "$settings"
   fi

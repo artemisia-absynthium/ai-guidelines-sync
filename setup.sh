@@ -314,11 +314,6 @@ setup_project() {
     [ -n "$cats_str" ] && read -ra detected_cats <<< "$cats_str"
     info "Detected categories: ${cats_str:-none}"
 
-    # ── Detect default branch ──
-    local default_branch
-    default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|.*/||' || true)
-    [ -z "$default_branch" ] && default_branch="main"
-
     # ── Create directories ──
     mkdir -p ".claude/rules/synced" ".github/workflows" ".claude/skills"
 
@@ -420,11 +415,9 @@ WORKFLOW
             if [[ "$upstream_path" == rules/* ]]; then
                 # rules/category/file.md → .claude/rules/synced/category/file.md
                 dest_path=".claude/rules/synced/${upstream_path#rules/}"
-            elif [[ "$upstream_path" == skills/* ]]; then
+            else
                 # skills/name/file.md → .claude/skills/name/file.md
                 dest_path=".claude/${upstream_path}"
-            else
-                continue
             fi
 
             mkdir -p "$(dirname "$dest_path")"
