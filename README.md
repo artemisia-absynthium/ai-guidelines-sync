@@ -23,7 +23,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/artemisia-absynthium/ai-guid
 
 - macOS with Homebrew installed (`https://brew.sh/`)
 - `jq` — installed automatically if absent, removed when the script exits (requires Homebrew)
-- Bash 4.3+ — Homebrew's bash (`brew install bash`) is required on macOS (system bash is 3.2)
 
 ---
 
