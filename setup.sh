@@ -62,7 +62,7 @@ pick_day() {
         done
         local i
         for i in "${!days[@]}"; do
-            if [[ "${days[$i],,}" == "${day_arg,,}" ]]; then
+            if [ "$(echo "${days[$i]}" | tr '[:upper:]' '[:lower:]')" = "$(echo "$day_arg" | tr '[:upper:]' '[:lower:]')" ]; then
                 SELECTED_DAY_NAME="${days[$i]}"
                 SELECTED_DAY_CRON="${crons[$i]}"
                 return
@@ -423,9 +423,6 @@ WORKFLOW
             elif [[ "$upstream_path" == skills/* ]]; then
                 # skills/name/file.md → .claude/skills/name/file.md
                 dest_path=".claude/${upstream_path}"
-                # Track skill name for manifest
-                skill_name=$(echo "$upstream_path" | cut -d/ -f2)
-                synced_skill_names+=("$skill_name")
             else
                 continue
             fi
@@ -440,6 +437,11 @@ WORKFLOW
 
             printf '%s' "$content" > "$dest_path"
             WRITTEN_FILES+=("$dest_path")
+            # Only record skill as synced after the file is successfully written
+            if [[ "$upstream_path" == skills/* ]]; then
+                skill_name=$(echo "$upstream_path" | cut -d/ -f2)
+                synced_skill_names+=("$skill_name")
+            fi
         done
 
         # Write skills manifest

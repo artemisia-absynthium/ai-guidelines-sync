@@ -245,3 +245,45 @@ _merge_hook() {
   result=$(read_active_categories) || true
   [ "$result" = "workflow" ]
 }
+
+# ── pick_day non-interactive ──────────────────────────────────────────────────
+
+@test "pick_day: non-interactive --day=Wednesday sets correct day and cron" {
+  pick_day --day=Wednesday < /dev/null
+  [ "$SELECTED_DAY_NAME" = "Wednesday" ]
+  [ "$SELECTED_DAY_CRON" = "3" ]
+}
+
+@test "pick_day: non-interactive --day= is case-insensitive" {
+  pick_day --day=wednesday < /dev/null
+  [ "$SELECTED_DAY_NAME" = "Wednesday" ]
+  [ "$SELECTED_DAY_CRON" = "3" ]
+}
+
+@test "pick_day: non-interactive unknown day defaults to Monday" {
+  pick_day --day=Someday < /dev/null
+  [ "$SELECTED_DAY_NAME" = "Monday" ]
+  [ "$SELECTED_DAY_CRON" = "1" ]
+}
+
+@test "pick_day: non-interactive no flag defaults to Monday" {
+  pick_day < /dev/null
+  [ "$SELECTED_DAY_NAME" = "Monday" ]
+  [ "$SELECTED_DAY_CRON" = "1" ]
+}
+
+# ── migration ─────────────────────────────────────────────────────────────────
+
+@test "migration: rules-sync renamed to rules-sync.txt preserving content" {
+  cd "$TEST_DIR"
+  git init -q
+  mkdir -p ".claude"
+  printf 'swift\nvisionos\n' > ".claude/rules-sync"
+
+  setup_project
+
+  [ ! -f ".claude/rules-sync" ]
+  [ -f ".claude/rules-sync.txt" ]
+  grep -qx "swift" ".claude/rules-sync.txt"
+  grep -qx "visionos" ".claude/rules-sync.txt"
+}
