@@ -1,0 +1,234 @@
+name: 'Sync Claude AI Rules and Skills'
+description: 'Syncs Claude Code rules and skills from artemisia-absynthium/ai-guidelines-sync into this repository'
+
+runs:
+  using: composite
+  steps:
+    - name: Check out ai-guidelines-sync
+      uses: actions/checkout@v6
+      with:
+        repository: artemisia-absynthium/ai-guidelines-sync
+        path: .tmp-claude-rules
+
+    - name: Detect, merge, and sync rules
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # ── helpers ────────────────────────────────────────────────────────────
+
+        detect_categories() {
+          local -a cats=()
+
+          # Swift / Apple platforms
+          local has_swift=false
+          if find . -name "*.xcodeproj" -type d -not -path "*/.git/*" | head -1 | grep -q .; then
+            has_swift=true
+          elif [ -f Package.swift ]; then
+            has_swift=true
+          elif find . -name "*.swift" -not -path "*/.git/*" -not -path "*/.build/*" \
+                  -not -path "*/DerivedData/*" | head -1 | grep -q .; then
+            has_swift=true
+          fi
+
+          if [ "$has_swift" = true ]; then
+            cats+=(swift xcode)
+
+            local pbxproj
+            pbxproj=$(find . -name "*.pbxproj" -not -path "*/.git/*" \
+                        -not -path "*/.build/*" -not -path "*/DerivedData/*" | head -1 || true)
+
+            if [ -n "$pbxproj" ]; then
+              local platforms
+              platforms=$(grep "SUPPORTED_PLATFORMS" "$pbxproj" 2>/dev/null | head -1 \
+                          | grep -oE '"[^"]*"' | tr -d '"' || true)
+              if [ -z "$platforms" ]; then
+                cats+=(ios)
+              else
+                echo "$platforms" | grep -qE "xros|xrsimulator" && cats+=(visionos) || true
+                echo "$platforms" | grep -q "macosx"            && cats+=(mac)      || true
+                echo "$platforms" | grep -q "iphoneos"          && cats+=(ios)      || true
+              fi
+            elif [ -f Package.swift ]; then
+              if ! grep -qE '\bplatforms[[:space:]]*:' Package.swift 2>/dev/null; then
+                cats+=(ios visionos mac)
+              else
+                grep -q '\.iOS'      Package.swift && cats+=(ios)      || true
+                grep -q '\.visionOS' Package.swift && cats+=(visionos) || true
+                grep -q '\.macOS'    Package.swift && cats+=(mac)      || true
+              fi
+            else
+              cats+=(ios)
+            fi
+          fi
+
+          # Android
+          if find . \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+                  -not -path "*/.git/*" | head -1 | grep -q .; then
+            cats+=(android)
+          fi
+
+          # Web / Node
+          if [ -f package.json ]; then
+            if find . -name "playwright.config.*" \
+                    -not -path "*/node_modules/*" -not -path "*/.git/*" | head -1 | grep -q .; then
+              cats+=(web)
+            else
+              cats+=(node)
+            fi
+          fi
+
+          # Python
+          if [ -f pyproject.toml ] || [ -f requirements.txt ]; then
+            cats+=(python)
+          fi
+
+          printf '%s\n' "${cats[@]+"${cats[@]}"}"
+        }
+
+        # Merge newly detected categories into rules-sync.txt.
+        # Keeps existing entries, skips commented-out ones, adds absent ones.
+        merge_into_rules_sync() {
+          local rules_sync=".claude/rules-sync.txt"
+          mkdir -p .claude
+
+          if [ ! -f "$rules_sync" ]; then
+            printf '%s\n' "$@" > "$rules_sync"
+            echo "Created rules-sync.txt with categories: $*"
+            return
+          fi
+
+          local cat
+          for cat in "$@"; do
+            # Commented out → explicitly excluded, skip
+            grep -qE "^[[:space:]]*#[[:space:]]*${cat}[[:space:]]*$" "$rules_sync" && continue
+            # Already active → skip
+            grep -qE "^[[:space:]]*${cat}[[:space:]]*$" "$rules_sync" && continue
+            # Absent → auto-add
+            echo "$cat" >> "$rules_sync"
+            echo "Auto-added new category: $cat"
+          done
+        }
+
+        # Read active (uncommented) categories from rules-sync.txt.
+        # Always includes 'workflow'. Writes to ACTIVE_CATS array.
+        read_active_categories() {
+          ACTIVE_CATS=(workflow)
+          [ -f ".claude/rules-sync.txt" ] || return
+
+          local line
+          while IFS= read -r line; do
+            [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            # Don't duplicate workflow
+            [ "$line" = "workflow" ] && continue
+            ACTIVE_CATS+=("$line")
+          done < ".claude/rules-sync.txt"
+        }
+
+        # ── detect ────────────────────────────────────────────────────────────
+        mapfile -t detected < <(detect_categories)
+        echo "Detected categories: ${detected[*]+"${detected[*]}"}"
+
+        # ── merge into rules-sync.txt ─────────────────────────────────────────
+        if [ "${#detected[@]}" -gt 0 ]; then
+          merge_into_rules_sync "${detected[@]}"
+        fi
+
+        # ── read active categories ─────────────────────────────────────────────
+        ACTIVE_CATS=()
+        read_active_categories
+        echo "Active categories: ${ACTIVE_CATS[*]}"
+
+        # ── category-level cleanup ─────────────────────────────────────────────
+        # Delete synced/<cat>/ directories whose category is no longer active.
+        if [ -d ".claude/rules/synced" ]; then
+          for synced_dir in .claude/rules/synced/*/; do
+            [ -d "$synced_dir" ] || continue
+            cat=$(basename "$synced_dir")
+            is_active=false
+            for ac in "${ACTIVE_CATS[@]}"; do
+              [ "$ac" = "$cat" ] && is_active=true && break
+            done
+            if [ "$is_active" = false ]; then
+              rm -rf "$synced_dir"
+              echo "Removed stale category: $cat"
+            fi
+          done
+        fi
+
+        # ── rsync active categories ────────────────────────────────────────────
+        mkdir -p .claude/rules/synced
+        for cat in "${ACTIVE_CATS[@]}"; do
+          upstream_dir=".tmp-claude-rules/rules/${cat}"
+          if [ -d "$upstream_dir" ]; then
+            mkdir -p ".claude/rules/synced/${cat}"
+            rsync -a --delete "$upstream_dir/" ".claude/rules/synced/${cat}/"
+            echo "Synced category: $cat"
+          else
+            echo "Category not yet in upstream, skipping: $cat"
+          fi
+        done
+
+    - name: Sync skills with manifest
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        skills_src=".tmp-claude-rules/skills"
+        skills_dst=".claude/skills"
+        manifest="$skills_dst/.synced-manifest"
+
+        if [ ! -d "$skills_src" ]; then
+          echo "No skills directory in upstream — skipping skill sync"
+          exit 0
+        fi
+
+        mkdir -p "$skills_dst"
+
+        # Read old manifest
+        old_skills=()
+        if [ -f "$manifest" ]; then
+          while IFS= read -r line; do
+            [ -n "$line" ] && old_skills+=("$line")
+          done < "$manifest"
+        fi
+
+        # Enumerate new upstream skills
+        new_skills=()
+        while IFS= read -r skill_dir; do
+          [ -d "$skill_dir" ] || continue
+          new_skills+=("$(basename "$skill_dir")")
+        done < <(find "$skills_src" -mindepth 1 -maxdepth 1 -type d | sort)
+
+        # Rsync all upstream skills — no --delete, local skills coexist alongside synced ones
+        rsync -a --exclude ".synced-manifest" "$skills_src/" "$skills_dst/"
+
+        # Remove skills that were in old manifest but have been removed from upstream
+        for old_skill in "${old_skills[@]+"${old_skills[@]}"}"; do
+          if ! printf '%s\n' "${new_skills[@]+"${new_skills[@]}"}" | grep -qx "$old_skill"; then
+            if [ -d "${skills_dst}/${old_skill}" ]; then
+              rm -rf "${skills_dst}/${old_skill}"
+              echo "Removed deleted upstream skill: $old_skill"
+            fi
+          fi
+        done
+
+        # Write updated manifest
+        printf '%s\n' "${new_skills[@]+"${new_skills[@]}"}" | sort > "$manifest"
+        echo "Synced skills: ${new_skills[*]+"${new_skills[*]}"}"
+
+    - name: Clean up upstream checkout
+      shell: bash
+      run: rm -rf .tmp-claude-rules
+
+    - name: Commit and push
+      shell: bash
+      run: |
+        set -euo pipefail
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add .claude/
+        git diff --staged --quiet \
+          || git commit -m "chore: sync Claude Code rules and skills"
+        git push
