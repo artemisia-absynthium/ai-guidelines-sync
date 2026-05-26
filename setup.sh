@@ -333,9 +333,11 @@ setup_project() {
             echo "# Available: swift, ios, mac, visionos, xcode, android, web"
             echo "# The 'workflow' category is always synced regardless of this file."
             local cat
-            for cat in "${detected_cats[@]}"; do
-                echo "$cat"
-            done
+            if [ "${#detected_cats[@]}" -gt 0 ]; then
+                for cat in "${detected_cats[@]}"; do
+                    echo "$cat"
+                done
+            fi
         } > ".claude/rules-sync.txt"
         WRITTEN_FILES+=(".claude/rules-sync.txt")
     fi
