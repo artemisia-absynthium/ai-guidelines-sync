@@ -274,7 +274,7 @@ detect_categories() {
 # Usage: active_cats=( $(read_active_categories) )
 read_active_categories() {
     echo "workflow"
-    [ -f ".claude/rules-sync.txt" ] || return
+    [ -f ".claude/rules-sync.txt" ] || return 0
 
     while IFS= read -r line; do
         # Skip comments and blank lines
@@ -346,7 +346,7 @@ cleanup_stale_rules() {
         [ -d "$cat_dir" ] || continue
         cat_name=$(basename "$cat_dir")
         is_active=false
-        for ac in "${active_cats[@]}"; do
+        for ac in ${active_cats[@]+"${active_cats[@]}"}; do
             [ "$ac" = "$cat_name" ] && is_active=true && break
         done
         if [ "$is_active" = false ]; then
@@ -503,9 +503,9 @@ setup_project() {
     local -a active_cats=()
     while IFS= read -r _cat; do active_cats+=("$_cat"); done < <(read_active_categories)
 
-    cleanup_stale_rules "${active_cats[@]}"
+    cleanup_stale_rules ${active_cats[@]+"${active_cats[@]}"}
     write_workflow_file
-    sync_upstream "${active_cats[@]}"
+    sync_upstream ${active_cats[@]+"${active_cats[@]}"}
     merge_guard_hook
     report_results
 }

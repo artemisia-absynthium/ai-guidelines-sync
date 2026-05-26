@@ -314,8 +314,16 @@ teardown() {
 
 @test "cleanup_stale_rules: no-ops when synced dir does not exist" {
   cd "$TEST_DIR"
-  # Must not error when .claude/rules/synced is absent
   cleanup_stale_rules "swift"
+  [ ! -d ".claude/rules/synced" ]
+}
+
+@test "cleanup_stale_rules: removes all dirs when called with no active categories" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude/rules/synced/swift" ".claude/rules/synced/ios"
+  cleanup_stale_rules
+  [ ! -d ".claude/rules/synced/swift" ]
+  [ ! -d ".claude/rules/synced/ios" ]
 }
 
 # ── write_workflow_file ───────────────────────────────────────────────────────
