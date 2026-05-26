@@ -185,16 +185,12 @@ pick_repos() {
 }
 
 # ── Category detection ────────────────────────────────────────────────────────
-# Outputs a space-separated list of detected category names to stdout.
-detect_categories() {
-    local dir="${1:-.}"
-    local -a cats=()
+# Echoes Apple-platform category names (one per line) for the given directory.
+# Outputs nothing when no Swift project is detected.
+_detect_apple_categories() {
+    local dir="$1"
+    local has_swift=false pbxproj=""
 
-    # ── Apple / Swift ──
-    local has_swift=false
-    local pbxproj=""
-
-    # Check for .xcodeproj, Package.swift, or any .swift file
     if find "$dir" -maxdepth 3 -name "*.xcodeproj" -type d 2>/dev/null | head -1 | grep -q .; then
         has_swift=true
     elif [ -f "$dir/Package.swift" ]; then
@@ -204,38 +200,46 @@ detect_categories() {
         has_swift=true
     fi
 
-    if [ "$has_swift" = true ]; then
-        cats+=("swift" "xcode")
+    [ "$has_swift" = false ] && return
 
-        pbxproj=$(find "$dir" -name "*.pbxproj" \
-            -not -path "*/.build/*" -not -path "*/DerivedData/*" 2>/dev/null | head -1 || true)
+    echo "swift"
+    echo "xcode"
 
-        if [ -n "$pbxproj" ]; then
-            # Read SUPPORTED_PLATFORMS from .pbxproj
-            local platforms
-            platforms=$(grep "SUPPORTED_PLATFORMS" "$pbxproj" 2>/dev/null | head -1 \
-                | grep -oE '"[^"]*"' | tr -d '"' || true)
+    pbxproj=$(find "$dir" -name "*.pbxproj" \
+        -not -path "*/.build/*" -not -path "*/DerivedData/*" 2>/dev/null | head -1 || true)
 
-            if [ -z "$platforms" ]; then
-                cats+=("ios")   # Absent → iOS only (Xcode default)
-            else
-                echo "$platforms" | grep -qE "xros|xrsimulator" && cats+=("visionos") || true
-                echo "$platforms" | grep -q "macosx"            && cats+=("mac")      || true
-                echo "$platforms" | grep -q "iphoneos"          && cats+=("ios")      || true
-            fi
-        elif [ -f "$dir/Package.swift" ]; then
-            # Package.swift: check for 'platforms:' named argument (no leading dot — SPM syntax)
-            if ! grep -qE '\bplatforms[[:space:]]*:' "$dir/Package.swift" 2>/dev/null; then
-                cats+=("ios" "visionos" "mac")   # No platforms key → all platforms (SPM default)
-            else
-                grep -q '\.iOS'      "$dir/Package.swift" && cats+=("ios")      || true
-                grep -q '\.visionOS' "$dir/Package.swift" && cats+=("visionos") || true
-                grep -q '\.macOS'    "$dir/Package.swift" && cats+=("mac")      || true
-            fi
+    if [ -n "$pbxproj" ]; then
+        local platforms
+        platforms=$(grep "SUPPORTED_PLATFORMS" "$pbxproj" 2>/dev/null | head -1 \
+            | grep -oE '"[^"]*"' | tr -d '"' || true)
+
+        if [ -z "$platforms" ]; then
+            echo "ios"   # Absent → iOS only (Xcode default)
         else
-            cats+=("ios")   # Swift files, no project or package → assume iOS
+            echo "$platforms" | grep -qE "xros|xrsimulator" && echo "visionos" || true
+            echo "$platforms" | grep -q "macosx"            && echo "mac"      || true
+            echo "$platforms" | grep -q "iphoneos"          && echo "ios"      || true
         fi
+    elif [ -f "$dir/Package.swift" ]; then
+        # Package.swift: check for 'platforms:' named argument (no leading dot — SPM syntax)
+        if ! grep -qE '\bplatforms[[:space:]]*:' "$dir/Package.swift" 2>/dev/null; then
+            echo "ios"; echo "visionos"; echo "mac"   # No platforms key → all platforms (SPM default)
+        else
+            grep -q '\.iOS'      "$dir/Package.swift" && echo "ios"      || true
+            grep -q '\.visionOS' "$dir/Package.swift" && echo "visionos" || true
+            grep -q '\.macOS'    "$dir/Package.swift" && echo "mac"      || true
+        fi
+    else
+        echo "ios"   # Swift files, no project or package → assume iOS
     fi
+}
+
+# Outputs a space-separated list of detected category names to stdout.
+detect_categories() {
+    local dir="${1:-.}"
+    local -a cats=()
+
+    while IFS= read -r c; do cats+=("$c"); done < <(_detect_apple_categories "$dir")
 
     # ── Android ──
     if find "$dir" -maxdepth 3 \
@@ -282,22 +286,16 @@ read_active_categories() {
     done < ".claude/rules-sync.txt"
 }
 
-# ── Core setup function ───────────────────────────────────────────────────────
+# ── Core setup functions ──────────────────────────────────────────────────────
 WRITTEN_FILES=()
 SKIPPED_FILES=()
 
-setup_project() {
-    header "Setting up: $(pwd)"
-    WRITTEN_FILES=()
-    SKIPPED_FILES=()
-
-    # ── Migration: rename old rules-sync → rules-sync.txt ──
+migrate_legacy_files() {
     if [ -f ".claude/rules-sync" ] && [ ! -f ".claude/rules-sync.txt" ]; then
         mv ".claude/rules-sync" ".claude/rules-sync.txt"
         success "Renamed .claude/rules-sync → .claude/rules-sync.txt"
     fi
 
-    # ── Migration: remove deprecated synced skills ──
     local -a deprecated_skills=("setup-project-ai")
     local skill
     for skill in "${deprecated_skills[@]}"; do
@@ -306,61 +304,59 @@ setup_project() {
             success "Removed deprecated synced skill: $skill"
         fi
     done
+}
 
-    # ── Detect categories ──
-    local cats_str
-    cats_str=$(detect_categories ".")
-    local -a detected_cats=()
-    [ -n "$cats_str" ] && read -ra detected_cats <<< "$cats_str"
-    info "Detected categories: ${cats_str:-none}"
-
-    # ── Create directories ──
+setup_directories() {
     mkdir -p ".claude/rules/synced" ".github/workflows" ".claude/skills"
+}
 
-    # ── Write .claude/rules-sync.txt (skip if exists) ──
+# Write .claude/rules-sync.txt seeded with detected categories. Skips if already present.
+# Usage: write_rules_sync_config "<space-separated category string>"
+write_rules_sync_config() {
+    local cats_str="$1"
     if [ -f ".claude/rules-sync.txt" ]; then
         SKIPPED_FILES+=(".claude/rules-sync.txt (already exists — preserving user edits)")
-    else
-        {
-            echo "# AI Guidelines Sync — category config"
-            echo "# One category per line."
-            echo "# Comment out a line (# category) to explicitly exclude it from auto-detection."
-            echo "# Available: swift, ios, mac, visionos, xcode, android, web"
-            echo "# The 'workflow' category is always synced regardless of this file."
-            local cat
-            if [ "${#detected_cats[@]}" -gt 0 ]; then
-                for cat in "${detected_cats[@]}"; do
-                    echo "$cat"
-                done
-            fi
-        } > ".claude/rules-sync.txt"
-        WRITTEN_FILES+=(".claude/rules-sync.txt")
+        return
     fi
+    local -a detected_cats=()
+    [ -n "$cats_str" ] && read -ra detected_cats <<< "$cats_str"
+    {
+        echo "# AI Guidelines Sync — category config"
+        echo "# One category per line."
+        echo "# Comment out a line (# category) to explicitly exclude it from auto-detection."
+        echo "# Available: swift, ios, mac, visionos, xcode, android, web"
+        echo "# The 'workflow' category is always synced regardless of this file."
+        local cat
+        if [ "${#detected_cats[@]}" -gt 0 ]; then
+            for cat in "${detected_cats[@]}"; do echo "$cat"; done
+        fi
+    } > ".claude/rules-sync.txt"
+    WRITTEN_FILES+=(".claude/rules-sync.txt")
+}
 
-    # ── Read active categories (after rules-sync.txt is written) ──
-    local -a active_cats=()
-    while IFS= read -r _cat; do active_cats+=("$_cat"); done < <(read_active_categories)
-
-    # ── Migration: stale category dir cleanup ──
+# Remove .claude/rules/synced/* dirs whose category is no longer active.
+# Usage: cleanup_stale_rules <active_cat> [<active_cat> ...]
+cleanup_stale_rules() {
     # Temporary — handles repos set up before the action had category-level cleanup.
     # Can be removed after migration window (~2 weeks from initial rollout).
-    if [ -d ".claude/rules/synced" ]; then
-        local cat_dir cat_name is_active ac
-        for cat_dir in ".claude/rules/synced"/*/; do
-            [ -d "$cat_dir" ] || continue
-            cat_name=$(basename "$cat_dir")
-            is_active=false
-            for ac in "${active_cats[@]}"; do
-                [ "$ac" = "$cat_name" ] && is_active=true && break
-            done
-            if [ "$is_active" = false ]; then
-                rm -rf "$cat_dir"
-                success "Removed stale category directory: .claude/rules/synced/$cat_name/"
-            fi
+    [ -d ".claude/rules/synced" ] || return 0
+    local -a active_cats=("$@")
+    local cat_dir cat_name is_active ac
+    for cat_dir in ".claude/rules/synced"/*/; do
+        [ -d "$cat_dir" ] || continue
+        cat_name=$(basename "$cat_dir")
+        is_active=false
+        for ac in "${active_cats[@]}"; do
+            [ "$ac" = "$cat_name" ] && is_active=true && break
         done
-    fi
+        if [ "$is_active" = false ]; then
+            rm -rf "$cat_dir"
+            success "Removed stale category directory: .claude/rules/synced/$cat_name/"
+        fi
+    done
+}
 
-    # ── Write thin wrapper workflow (always overwrite) ──
+write_workflow_file() {
     cat > ".github/workflows/sync-claude-rules.yml" <<WORKFLOW
 # Managed by ai-guidelines-sync — do not edit this file directly.
 # Sync logic lives in artemisia-absynthium/ai-guidelines-sync/.github/actions/sync@main.
@@ -382,71 +378,72 @@ jobs:
       - uses: artemisia-absynthium/ai-guidelines-sync/.github/actions/sync@main
 WORKFLOW
     WRITTEN_FILES+=(".github/workflows/sync-claude-rules.yml (${SELECTED_DAY_NAME})")
+}
 
-    # ── Pre-populate rules and skills from upstream ──
+# Write .claude/skills/.synced-manifest. No-op when called with no arguments.
+# Usage: write_skills_manifest <skill_name> [<skill_name> ...]
+write_skills_manifest() {
+    [ "$#" -eq 0 ] && return
+    printf '%s\n' "$@" | sort -u > ".claude/skills/.synced-manifest"
+    WRITTEN_FILES+=(".claude/skills/.synced-manifest")
+}
+
+# Fetch upstream rules and skills and write them into the project.
+# Usage: sync_upstream <active_cat> [<active_cat> ...]
+sync_upstream() {
+    local -a active_cats=("$@")
     info "Fetching upstream file list..."
     local tree_json=""
     tree_json=$(curl -fsSL "${UPSTREAM_API}/git/trees/HEAD?recursive=1" 2>/dev/null) || true
 
-    local -a synced_skill_names=()
-
-    if [ -n "$tree_json" ] && echo "$tree_json" | jq -e '.tree' >/dev/null 2>&1; then
-        local -a upstream_paths=()
-
-        # Collect rule paths for active categories
-        local ac
-        for ac in "${active_cats[@]}"; do
-            while IFS= read -r p; do
-                [ -n "$p" ] && upstream_paths+=("$p")
-            done < <(echo "$tree_json" | jq -r --arg cat "$ac" \
-                '.tree[] | select(.type=="blob") | .path | select(startswith("rules/"+$cat+"/"))' \
-                2>/dev/null || true)
-        done
-
-        # Collect skill paths
-        while IFS= read -r p; do
-            [ -n "$p" ] && upstream_paths+=("$p")
-        done < <(echo "$tree_json" | jq -r \
-            '.tree[] | select(.type=="blob") | .path | select(startswith("skills/"))' \
-            2>/dev/null || true)
-
-        local upstream_path dest_path skill_name content
-        for upstream_path in "${upstream_paths[@]}"; do
-            if [[ "$upstream_path" == rules/* ]]; then
-                # rules/category/file.md → .claude/rules/synced/category/file.md
-                dest_path=".claude/rules/synced/${upstream_path#rules/}"
-            else
-                # skills/name/file.md → .claude/skills/name/file.md
-                dest_path=".claude/${upstream_path}"
-            fi
-
-            mkdir -p "$(dirname "$dest_path")"
-
-            content=$(curl -fsSL "${UPSTREAM_API}/contents/${upstream_path}" 2>/dev/null \
-                | jq -r '.content' 2>/dev/null | base64 -d 2>/dev/null) || {
-                warn "Failed to fetch: $upstream_path"
-                continue
-            }
-
-            printf '%s' "$content" > "$dest_path"
-            WRITTEN_FILES+=("$dest_path")
-            # Only record skill as synced after the file is successfully written
-            if [[ "$upstream_path" == skills/* ]]; then
-                skill_name=$(echo "$upstream_path" | cut -d/ -f2)
-                synced_skill_names+=("$skill_name")
-            fi
-        done
-
-        # Write skills manifest
-        if [ "${#synced_skill_names[@]}" -gt 0 ]; then
-            printf '%s\n' "${synced_skill_names[@]}" | sort -u > ".claude/skills/.synced-manifest"
-            WRITTEN_FILES+=(".claude/skills/.synced-manifest")
-        fi
-    else
+    if ! ([ -n "$tree_json" ] && echo "$tree_json" | jq -e '.tree' >/dev/null 2>&1); then
         warn "Could not fetch upstream file list — skipping pre-population. Sync will run via GitHub Actions."
+        return
     fi
 
-    # ── Write guard hook to .claude/settings.json ──
+    local -a upstream_paths=()
+    local ac
+    for ac in "${active_cats[@]}"; do
+        while IFS= read -r p; do
+            [ -n "$p" ] && upstream_paths+=("$p")
+        done < <(echo "$tree_json" | jq -r --arg cat "$ac" \
+            '.tree[] | select(.type=="blob") | .path | select(startswith("rules/"+$cat+"/"))' \
+            2>/dev/null || true)
+    done
+    while IFS= read -r p; do
+        [ -n "$p" ] && upstream_paths+=("$p")
+    done < <(echo "$tree_json" | jq -r \
+        '.tree[] | select(.type=="blob") | .path | select(startswith("skills/"))' \
+        2>/dev/null || true)
+
+    local upstream_path dest_path skill_name content
+    local -a synced_skill_names=()
+    for upstream_path in "${upstream_paths[@]}"; do
+        if [[ "$upstream_path" == rules/* ]]; then
+            dest_path=".claude/rules/synced/${upstream_path#rules/}"
+        else
+            dest_path=".claude/${upstream_path}"
+        fi
+        mkdir -p "$(dirname "$dest_path")"
+        content=$(curl -fsSL "${UPSTREAM_API}/contents/${upstream_path}" 2>/dev/null \
+            | jq -r '.content' 2>/dev/null | base64 -d 2>/dev/null) || {
+            warn "Failed to fetch: $upstream_path"
+            continue
+        }
+        printf '%s' "$content" > "$dest_path"
+        WRITTEN_FILES+=("$dest_path")
+        if [[ "$upstream_path" == skills/* ]]; then
+            skill_name=$(echo "$upstream_path" | cut -d/ -f2)
+            synced_skill_names+=("$skill_name")
+        fi
+    done
+
+    if [ "${#synced_skill_names[@]}" -gt 0 ]; then
+        write_skills_manifest "${synced_skill_names[@]}"
+    fi
+}
+
+merge_guard_hook() {
     local settings_file=".claude/settings.json"
     local guard_cmd
     # shellcheck disable=SC2016
@@ -455,7 +452,6 @@ WORKFLOW
     guard_entry=$(jq -n --arg cmd "$guard_cmd" \
         '{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":$cmd}]}')
 
-    # Ensure the file exists with at least {}
     [ -f "$settings_file" ] || echo '{}' > "$settings_file"
 
     if grep -q "rules/synced" "$settings_file" 2>/dev/null; then
@@ -468,28 +464,50 @@ WORKFLOW
             "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
         WRITTEN_FILES+=(".claude/settings.json (guard hook added)")
     fi
+}
 
-    # ── Report ──
+report_results() {
     echo ""
     echo -e "${BOLD}${GREEN}Done — $(pwd)${NC}"
-
     if [ "${#WRITTEN_FILES[@]}" -gt 0 ]; then
         echo -e "${GREEN}Written:${NC}"
         local f
         for f in "${WRITTEN_FILES[@]}"; do echo "  • $f"; done
     fi
-
     if [ "${#SKIPPED_FILES[@]}" -gt 0 ]; then
         echo -e "${YELLOW}Skipped:${NC}"
         for f in "${SKIPPED_FILES[@]}"; do echo "  • $f"; done
     fi
-
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"
     echo "  1. If this repo has branch protection, add a deploy key:"
     echo "     See: https://github.com/artemisia-absynthium/ai-guidelines-sync#adding-a-deploy-key"
     echo "  2. Commit and push all new/modified files"
     echo "  3. Actions → Sync Claude Rules and Skills → Run workflow (to verify the action runs)"
+}
+
+setup_project() {
+    header "Setting up: $(pwd)"
+    WRITTEN_FILES=()
+    SKIPPED_FILES=()
+
+    migrate_legacy_files
+
+    local cats_str
+    cats_str=$(detect_categories ".")
+    info "Detected categories: ${cats_str:-none}"
+
+    setup_directories
+    write_rules_sync_config "$cats_str"
+
+    local -a active_cats=()
+    while IFS= read -r _cat; do active_cats+=("$_cat"); done < <(read_active_categories)
+
+    cleanup_stale_rules "${active_cats[@]}"
+    write_workflow_file
+    sync_upstream "${active_cats[@]}"
+    merge_guard_hook
+    report_results
 }
 
 # ── Multi-repo mode ───────────────────────────────────────────────────────────

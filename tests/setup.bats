@@ -149,61 +149,45 @@ teardown() {
   [[ "$result" == *"python"* ]]
 }
 
-# ── guard hook merge ──────────────────────────────────────────────────────────
+# ── merge_guard_hook ──────────────────────────────────────────────────────────
 
-# Performs the same jq merge that setup_project does for the guard hook.
-_merge_hook() {
-  local settings_file="$1"
-  local guard_cmd
-  # shellcheck disable=SC2016
-  guard_cmd='file=$(jq -r '"'"'.file_path // empty'"'"'); case "$file" in *".claude/rules/synced"*) echo "ERROR" >&2; exit 2;; esac'
-  local guard_entry
-  guard_entry=$(jq -n --arg cmd "$guard_cmd" \
-    '{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":$cmd}]}')
-  local tmp
-  tmp=$(mktemp)
-  jq --argjson entry "$guard_entry" \
-    '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [$entry])' \
-    "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
-}
-
-@test "guard hook: added to empty settings.json" {
-  local settings="$TEST_DIR/settings.json"
-  echo '{}' > "$settings"
-  _merge_hook "$settings"
-  count=$(jq '.hooks.PreToolUse | length' "$settings")
+@test "merge_guard_hook: added to empty settings.json" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_guard_hook
+  count=$(jq '.hooks.PreToolUse | length' "$TEST_DIR/.claude/settings.json")
   [ "$count" = "1" ]
 }
 
-@test "guard hook: existing PostToolUse entry is preserved" {
-  local settings="$TEST_DIR/settings.json"
-  echo '{"hooks":{"PostToolUse":[]}}' > "$settings"
-  _merge_hook "$settings"
-  result=$(jq '.hooks | has("PostToolUse")' "$settings")
+@test "merge_guard_hook: existing PostToolUse entry is preserved" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{"hooks":{"PostToolUse":[]}}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_guard_hook
+  result=$(jq '.hooks | has("PostToolUse")' "$TEST_DIR/.claude/settings.json")
   [ "$result" = "true" ]
-  count=$(jq '.hooks.PreToolUse | length' "$settings")
+  count=$(jq '.hooks.PreToolUse | length' "$TEST_DIR/.claude/settings.json")
   [ "$count" = "1" ]
 }
 
-@test "guard hook: existing PreToolUse entries are kept when hook is appended" {
-  local settings="$TEST_DIR/settings.json"
-  echo '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[]}]}}' > "$settings"
-  _merge_hook "$settings"
-  count=$(jq '.hooks.PreToolUse | length' "$settings")
+@test "merge_guard_hook: existing PreToolUse entries are kept when hook is appended" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[]}]}}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_guard_hook
+  count=$(jq '.hooks.PreToolUse | length' "$TEST_DIR/.claude/settings.json")
   [ "$count" = "2" ]
 }
 
-@test "guard hook: setup_project skips merge when hook is already present" {
-  local settings="$TEST_DIR/settings.json"
-  echo '{}' > "$settings"
-  _merge_hook "$settings"
-  count_after_first=$(jq '.hooks.PreToolUse | length' "$settings")
-
-  if ! grep -q "rules/synced" "$settings"; then
-    _merge_hook "$settings"
-  fi
-
-  count_after_second=$(jq '.hooks.PreToolUse | length' "$settings")
+@test "merge_guard_hook: skips merge when hook is already present" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_guard_hook
+  count_after_first=$(jq '.hooks.PreToolUse | length' "$TEST_DIR/.claude/settings.json")
+  merge_guard_hook
+  count_after_second=$(jq '.hooks.PreToolUse | length' "$TEST_DIR/.claude/settings.json")
   [ "$count_after_first" = "$count_after_second" ]
 }
 
@@ -268,6 +252,102 @@ _merge_hook() {
   pick_day < /dev/null
   [ "$SELECTED_DAY_NAME" = "Monday" ]
   [ "$SELECTED_DAY_CRON" = "1" ]
+}
+
+# ── setup_directories ────────────────────────────────────────────────────────
+
+@test "setup_directories: creates required directories" {
+  cd "$TEST_DIR"
+  setup_directories
+  [ -d ".claude/rules/synced" ]
+  [ -d ".github/workflows" ]
+  [ -d ".claude/skills" ]
+}
+
+# ── write_rules_sync_config ───────────────────────────────────────────────────
+
+@test "write_rules_sync_config: writes file with detected categories" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude"
+  write_rules_sync_config "swift ios"
+  [ -f ".claude/rules-sync.txt" ]
+  grep -qx "swift" ".claude/rules-sync.txt"
+  grep -qx "ios" ".claude/rules-sync.txt"
+}
+
+@test "write_rules_sync_config: skips when file already exists" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude"
+  echo "existing" > ".claude/rules-sync.txt"
+  write_rules_sync_config "swift ios"
+  # File content must be unchanged and recorded as skipped
+  grep -qx "existing" ".claude/rules-sync.txt"
+  ! grep -q "swift" ".claude/rules-sync.txt"
+  [[ "${SKIPPED_FILES[*]}" == *"rules-sync.txt"* ]]
+}
+
+@test "write_rules_sync_config: writes file with no categories when string is empty" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude"
+  write_rules_sync_config ""
+  [ -f ".claude/rules-sync.txt" ]
+  grep -q "# AI Guidelines Sync" ".claude/rules-sync.txt"
+}
+
+# ── cleanup_stale_rules ───────────────────────────────────────────────────────
+
+@test "cleanup_stale_rules: removes category dirs not in active list" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude/rules/synced/swift" ".claude/rules/synced/ios"
+  cleanup_stale_rules "swift"
+  [ -d ".claude/rules/synced/swift" ]
+  [ ! -d ".claude/rules/synced/ios" ]
+}
+
+@test "cleanup_stale_rules: keeps all dirs when all are active" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude/rules/synced/swift" ".claude/rules/synced/ios"
+  cleanup_stale_rules "swift" "ios"
+  [ -d ".claude/rules/synced/swift" ]
+  [ -d ".claude/rules/synced/ios" ]
+}
+
+@test "cleanup_stale_rules: no-ops when synced dir does not exist" {
+  cd "$TEST_DIR"
+  # Must not error when .claude/rules/synced is absent
+  cleanup_stale_rules "swift"
+}
+
+# ── write_workflow_file ───────────────────────────────────────────────────────
+
+@test "write_workflow_file: writes workflow file with correct cron value" {
+  cd "$TEST_DIR"
+  mkdir -p ".github/workflows"
+  SELECTED_DAY_CRON=3
+  SELECTED_DAY_NAME="Wednesday"
+  write_workflow_file
+  [ -f ".github/workflows/sync-claude-rules.yml" ]
+  grep -q "0 9 \* \* 3" ".github/workflows/sync-claude-rules.yml"
+  [[ "${WRITTEN_FILES[*]}" == *"Wednesday"* ]]
+}
+
+# ── write_skills_manifest ─────────────────────────────────────────────────────
+
+@test "write_skills_manifest: writes sorted unique names" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude/skills"
+  write_skills_manifest "foo" "bar" "foo"
+  [ -f ".claude/skills/.synced-manifest" ]
+  result=$(cat ".claude/skills/.synced-manifest")
+  [ "$result" = "$(printf 'bar\nfoo')" ]
+  [[ "${WRITTEN_FILES[*]}" == *".synced-manifest"* ]]
+}
+
+@test "write_skills_manifest: no-op when called with no arguments" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude/skills"
+  write_skills_manifest
+  [ ! -f ".claude/skills/.synced-manifest" ]
 }
 
 # ── migration ─────────────────────────────────────────────────────────────────
