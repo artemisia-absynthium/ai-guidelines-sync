@@ -11,6 +11,7 @@ projects. Rules are synced into subscriber repos via GitHub Actions. `setup.sh` 
 
 ```bash
 bats tests/        # unit tests for setup.sh (requires: brew install bats-core)
+# Stub a sourced function inside a @test body: `fn_name() { return 0; }` overrides it for that test only.
 ```
 
 No other build step or package manager.
