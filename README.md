@@ -28,14 +28,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/artemisia-absynthium/ai-guid
 
 ## What the script does
 
-1. **Detects project type** — infers rule categories from `.xcodeproj`, `Package.swift`, `build.gradle`, `package.json`, `playwright.config.*`, `pyproject.toml`
-2. **Writes `.claude/rules-sync.txt`** — category config; skip if already exists (preserving user edits)
-3. **Writes `.github/workflows/sync-claude-rules.yml`** — thin wrapper calling the composite action; always overwritten; sync day is chosen interactively
-4. **Pre-populates rules and skills** from upstream via GitHub API (so teammates get them immediately on next clone)
-5. **Writes the guard hook** to `.claude/settings.json` — blocks accidental edits to sync-managed files
-6. **Migration** — renames `.claude/rules-sync` → `.claude/rules-sync.txt`, removes the retired `setup-project-ai` skill, cleans stale category directories
+1. **Checks out the default branch and pulls** — ensures setup runs on the latest remote state. Skipped gracefully when the repo has no commits or no upstream tracking branch.
+2. **Detects project type** — infers rule categories from `.xcodeproj`, `Package.swift`, `build.gradle`, `package.json`, `playwright.config.*`, `pyproject.toml`
+3. **Writes `.claude/rules-sync.txt`** — category config; skip if already exists (preserving user edits)
+4. **Writes `.github/workflows/sync-claude-rules.yml`** — thin wrapper calling the composite action; always overwritten; sync day is chosen interactively
+5. **Pre-populates rules and skills** from upstream via GitHub API (so teammates get them immediately on next clone)
+6. **Writes the guard hook** to `.claude/settings.json` — blocks accidental edits to sync-managed files
+7. **Migration** — renames `.claude/rules-sync` → `.claude/rules-sync.txt`, removes the retired `setup-project-ai` skill, cleans stale category directories
 
-Re-running the script is the update command — `rules-sync.txt` is preserved, everything else is refreshed.
+Re-running the script is the update command — `rules-sync.txt` is preserved, everything else is refreshed. In multi-repo mode, per-repo failures are collected and printed as a summary at the end rather than aborting the run.
 
 ---
 
@@ -52,6 +53,8 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -116,6 +119,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/xcode/packages.md` | SPM only — no CocoaPods or Carthage |
 | `rules/xcode/warnings.md` | Zero-warning policy |
 | `rules/workflow/contributing.md` | Cross-project rule contribution — invoke `lift-to-shared-rules` |
+| `rules/workflow/synced-rules.md` | Synced-directory layout — where to put local rules, how to opt out |
 
 ---
 
