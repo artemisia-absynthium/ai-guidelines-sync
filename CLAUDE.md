@@ -64,7 +64,9 @@ auto-detection. The action auto-adds newly detected categories on the next sync 
 
 Rules sync writes only to `.claude/rules/synced/` — a managed directory. Skills sync writes to
 `.claude/skills/<name>/` alongside local project skills; the manifest tracks upstream removals
-without touching local skills.
+without touching local skills. Subscriber-local rules live directly in `.claude/rules/` (no subdirectory).
+`setup.sh` also installs a `PreToolUse` guard hook in `.claude/settings.json` that blocks edits to
+`synced/` and redirects to `.claude/rules/`.
 
 ## Lifting rules cross-project
 
