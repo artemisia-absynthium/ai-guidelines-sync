@@ -43,6 +43,38 @@ cleanup_deps() {
 
 trap cleanup_deps EXIT
 
+# ── Git helpers ───────────────────────────────────────────────────────────────
+checkout_default_and_pull() {
+    local default_branch
+    default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
+        | sed 's|refs/remotes/origin/||') || true
+    : "${default_branch:=main}"
+
+    # No commits yet — nothing to check out; proceed on current (empty) branch.
+    if ! git rev-parse HEAD >/dev/null 2>&1; then
+        warn "Repository has no commits — skipping checkout and pull."
+        return 0
+    fi
+
+    info "Checking out default branch: $default_branch"
+    if ! git checkout "$default_branch"; then
+        err "Failed to check out $default_branch."
+        return 1
+    fi
+
+    # Skip pull when no upstream tracking branch is configured (e.g. no remote).
+    if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+        warn "No upstream tracking branch — skipping pull."
+        return 0
+    fi
+
+    info "Pulling latest changes..."
+    if ! git pull --ff-only; then
+        err "git pull --ff-only failed — resolve conflicts or divergence before running setup."
+        return 1
+    fi
+}
+
 # ── Interactive UI ────────────────────────────────────────────────────────────
 SELECTED_DAY_NAME="Monday"
 SELECTED_DAY_CRON=1
@@ -491,6 +523,8 @@ setup_project() {
     WRITTEN_FILES=()
     SKIPPED_FILES=()
 
+    checkout_default_and_pull || return 1
+
     migrate_legacy_files
 
     local cats_str
@@ -545,14 +579,20 @@ multi_repo_mode() {
     local start_dir
     start_dir="$(pwd)"
     local repo
+    local -a FAILED_REPOS=()
 
     for repo in "${SELECTED_REPOS[@]}"; do
         (
             cd "$start_dir/$repo"
             setup_project
-        )
+        ) || FAILED_REPOS+=("$repo")
     done
 
+    if [ "${#FAILED_REPOS[@]}" -gt 0 ]; then
+        echo -e "\n${YELLOW}Skipped (checkout/pull failed):${NC}"
+        local r
+        for r in "${FAILED_REPOS[@]}"; do echo "  • $r"; done
+    fi
     echo -e "\n${BOLD}${GREEN}All done!${NC}"
 }
 
@@ -562,7 +602,7 @@ main() {
 
     if git rev-parse --git-dir >/dev/null 2>&1; then
         pick_day "${@:-}"
-        setup_project
+        setup_project || exit 1
     else
         multi_repo_mode "${@:-}"
     fi

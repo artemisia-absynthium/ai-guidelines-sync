@@ -365,6 +365,7 @@ teardown() {
   git init -q
   mkdir -p ".claude"
   printf 'swift\nvisionos\n' > ".claude/rules-sync"
+  checkout_default_and_pull() { return 0; }
 
   setup_project
 
