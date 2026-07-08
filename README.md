@@ -104,6 +104,8 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/swift/assets.md` | `ImageResource` in SwiftUI — type-safe, non-optional asset loading |
 | `rules/swift/code-style.md` | Logger, file headers, import order, naming, SwiftLint |
 | `rules/swift/concurrency.md` | `@MainActor`, `@Observable`, async patterns, Task discipline |
+| `rules/swift/dates.md` | `FormatStyle` over `DateFormatter`, `en_US_POSIX` for machine formats |
+| `rules/swift/security.md` | Archive extraction — containment-guarded APIs, zip-slip prevention |
 | `rules/swift/state-management.md` | `Loadable<T>` pattern, error surfacing, retry design |
 | `rules/swift/swiftui.md` | View structure, adaptive layouts, state ownership, previews |
 | `rules/swift/testing.md` | Swift Testing (`@Test`, `@Suite`, `#expect`, `#require`) |
