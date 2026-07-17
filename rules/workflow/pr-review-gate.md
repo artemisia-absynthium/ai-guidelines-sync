@@ -13,8 +13,9 @@ The passes are independent: run them in parallel as subagents.
 
 1. **Design / SOLID review** — the Uncle Bob (Robert C. Martin) lens: type-level single
    responsibility, ownership, state lifetimes, dependency direction, the
-   `design-principles.md` thresholds. Explicit verdict on whether any type accumulated
-   responsibilities over the branch.
+   `design-principles.md` thresholds and its full design review lens (SOLID, Clean
+   Architecture boundaries, GRASP, Clean Code hygiene, coupling laws). Explicit verdict on
+   whether any type accumulated responsibilities over the branch.
 2. **Standard code review** — correctness, project conventions, error handling, test
    coverage (use the code-reviewer agent where available).
 3. **Security review** — adversarial pass over the diff: secrets/credentials in code or
