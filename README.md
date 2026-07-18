@@ -131,6 +131,8 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | Skill | What it does |
 |-------|-------------|
 | `lift-to-shared-rules` | Generalizes a pattern found in a project and proposes it upstream via commit (owner) or PR (contributor) |
+| `pr-review-gate` | The four mandatory review passes (design, standard, security, concurrency) before any PR opens — converted from an always-loaded rule to an on-demand skill |
+| `design-review-lens` | Full design-review checklist (SOLID, Clean Architecture, GRASP, Clean Code, coupling laws) for the gate's design pass or standalone reviews |
 
 After the first sync workflow run, skills are committed to `.claude/skills/<name>/` in each subscriber repo — available to all teammates automatically.
 
