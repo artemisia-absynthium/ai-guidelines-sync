@@ -108,9 +108,10 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/swift/dates.md` | `FormatStyle` over `DateFormatter`, `en_US_POSIX` for machine formats |
 | `rules/swift/security.md` | Archive extraction — containment-guarded APIs, zip-slip prevention |
 | `rules/swift/state-management.md` | `Loadable<T>` pattern, error surfacing, retry design |
-| `rules/swift/swiftui.md` | View structure, adaptive layouts, state ownership, previews |
+| `rules/swift/swiftui.md` | View structure, adaptive layouts, state ownership, previews, modal dismissal, in-app web |
 | `rules/swift/testing.md` | Swift Testing (`@Test`, `@Suite`, `#expect`, `#require`) |
 | `rules/ios/assets.md` | `UIImage(resource:)` — type-safe UIKit asset loading (iOS 17+) |
+| `rules/ios/liquid-glass.md` | Liquid Glass (iOS 26+) — system vs own glass, suppress-then-own, verification ladder |
 | `rules/mac/affordances.md` | Menus, keyboard shortcuts, windows, native chrome |
 | `rules/visionos/realitykit.md` | RealityView lifecycle, entity rules, z-offset, attachments |
 | `rules/android/code-style.md` | No force non-null, `Result<T>` at boundaries, companion constants |

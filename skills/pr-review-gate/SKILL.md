@@ -36,3 +36,14 @@ The passes are independent: run them in parallel as subagents.
 Findings are fixed before the PR opens, or listed explicitly to the user with a
 recommendation — never silently dropped. The PR-prep report includes one verdict line per
 pass.
+
+## Diff drift after the passes
+
+The four passes certify the diff they ran on, not the branch name. If the diff changes
+materially after a pass has run — a fix for a finding, a changed approach, an extra
+commit — the changed portion is re-reviewed before the PR opens: either a fresh run of
+the affected passes or a focused delta review applying all four lenses to the new
+commits. Reviewer-prescribed fixes are NOT exempt: implementing a prescription can
+itself introduce a defect the prescription didn't anticipate (e.g. a remedy that hides
+a symptom while leaving related state inconsistent), and only a review of the delta is
+positioned to catch it.
