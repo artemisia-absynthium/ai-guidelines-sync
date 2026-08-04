@@ -616,7 +616,9 @@ report_results() {
     echo "  2. Commit and push all new/modified files"
     echo "  3. Actions → Sync Claude Rules and Skills → Run workflow (to verify the action runs)"
     echo "  4. Optional hardening — make the gate hooks locally immutable (root-owned):"
-    echo "     sudo chown -R root:wheel .claude/hooks/synced && sudo chmod -R go-w .claude/hooks/synced"
+    echo "     sudo chown root:wheel .claude .claude/hooks .claude/hooks/synced .claude/hooks/synced/*"
+    echo "     sudo chmod go-w .claude .claude/hooks .claude/hooks/synced .claude/hooks/synced/*"
+    echo "     (parents too — renaming a directory needs write permission on its PARENT)"
     echo "     Trade-off: hook updates from sync then require 'sudo git checkout -- .claude/hooks/synced'"
 }
 
@@ -624,6 +626,7 @@ setup_project() {
     header "Setting up: $(pwd)"
     WRITTEN_FILES=()
     SKIPPED_FILES=()
+    GATE_HOOKS_WIRED=false
 
     checkout_default_and_pull || return 1
 
@@ -689,6 +692,16 @@ multi_repo_mode() {
             cd "$start_dir/$repo"
             setup_project
         ) || FAILED_REPOS+=("$repo")
+    done
+
+    # Gate hooks make jq a permanent runtime dependency; the per-repo flag is lost in the
+    # subshell, so decide retention here in the parent before the EXIT trap runs.
+    local wired_repo
+    for wired_repo in ${SELECTED_REPOS[@]+"${SELECTED_REPOS[@]}"}; do
+        if grep -q "design-gate.sh" "${wired_repo}/.claude/settings.json" 2>/dev/null; then
+            JQ_INSTALLED_BY_SCRIPT=false
+            break
+        fi
     done
 
     if [ "${#FAILED_REPOS[@]}" -gt 0 ]; then

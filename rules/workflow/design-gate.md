@@ -9,7 +9,8 @@ paths:
 A PreToolUse hook (synced to `.claude/hooks/synced/design-gate.sh`) blocks PR-opening
 commands — `gh pr create`, `gh pr ready`, and their `gh api`/REST/GraphQL equivalents —
 unless a valid gate stamp exists: PASS verdict, diff-hash matching the branch head, and
-local HEAD pushed. This is deterministic: the gate cannot be skipped by forgetting it.
+local HEAD pushed — so push the branch BEFORE opening the PR (`gh pr create`'s own
+auto-push offer arrives too late; the gate denies first). This is deterministic: the gate cannot be skipped by forgetting it.
 This rule documents the protocol the hook enforces.
 
 **Relationship to the pr-review-gate**: the gate's fresh-context run IS pass 1

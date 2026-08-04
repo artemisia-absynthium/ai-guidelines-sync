@@ -12,7 +12,7 @@ INPUT=$(cat)
 # Intent pre-check on the RAW payload, jq-free: if nothing PR-shaped appears anywhere,
 # allow without further dependencies. Broad by design — false positives fall through to
 # the precise (fail-closed) path below, never to a bypass.
-if ! printf '%s' "$INPUT" | grep -qE 'pr (create|ready)|pulls|[pP]ull[rR]equest'; then
+if ! printf '%s' "$INPUT" | grep -qiE '(^|[^[:alpha:]])pr([^[:alpha:]]|$)|pull'; then
     exit 0
 fi
 
@@ -73,6 +73,9 @@ CURRENT_HASH=$(gate_diff_hash) || deny "could not compute the branch diff hash"
 
 # The PR is built from the REMOTE branch; the stamp certifies LOCAL HEAD. Require them
 # to be the same commit, or the gate would certify code the PR does not contain.
+# Deliberately reads the local remote-tracking ref without fetching: a network call in a
+# PreToolUse hook adds latency and failure modes to every gated command; the server-side
+# required check is the layer that sees the true remote.
 BRANCH=$(git rev-parse --abbrev-ref HEAD) || deny "cannot resolve the current branch"
 REMOTE_SHA=$(git rev-parse "refs/remotes/origin/${BRANCH}" 2>/dev/null) || deny "branch '${BRANCH}' has no pushed counterpart — push first, then retry"
 [ "$REMOTE_SHA" = "$(git rev-parse HEAD)" ] || deny "origin/${BRANCH} differs from local HEAD — push first, then retry"

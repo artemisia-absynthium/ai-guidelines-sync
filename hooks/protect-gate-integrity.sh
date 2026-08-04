@@ -37,8 +37,11 @@ if [ -n "$CMD" ]; then
     fi
 
     # Protected content: any touch of the gate's paths, spelled directly or reached via
-    # a split prefix (cd .claude && ... design-gate/...).
-    if printf '%s' "$CMD" | grep -q '\.claude' \
+    # a split prefix (cd .claude && ... design-gate/...). Read/index git verbs are carved
+    # out — the documented post-setup flow stages and commits these very files; the
+    # destructive git verbs (checkout/clean/restore) stay denied by the container pattern.
+    if ! printf '%s' "$CMD" | grep -qE '^[[:space:]]*git[[:space:]]+(add|commit|status|diff|log|push|show)[[:space:]]' \
+        && printf '%s' "$CMD" | grep -q '\.claude' \
         && printf '%s' "$CMD" | grep -qE 'hooks|design-gate|settings\.(local\.)?json|settings\.json'; then
         deny
     fi

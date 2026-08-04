@@ -685,3 +685,34 @@ gate_input() {
   content=$(cat .claude/settings.json)
   [ "$content" = "not json" ]
 }
+
+# ── delta-review regressions (eac9e7e fixes) ──────────────────────────────────
+
+@test "design-gate: double-space pr create is still gated" {
+  make_gated_repo
+  run bash -c "echo '$(gate_input "gh pr  create --fill")' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "design-gate: tab-separated pr create is still gated" {
+  make_gated_repo
+  printf '{"cwd":"%s","tool_input":{"command":"gh pr\\tcreate --fill"}}' "$PWD" > "$TEST_DIR/in.json"
+  run bash -c "cat '$TEST_DIR/in.json' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "design-gate: git pull is allowed" {
+  make_gated_repo
+  run bash -c "echo '$(gate_input "git pull --ff-only")' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 0 ]
+}
+
+@test "protect-hooks: git add of a synced hook is allowed (post-setup commit flow)" {
+  run bash -c "echo '{\"tool_input\":{\"command\":\"git add .claude/hooks/synced/design-gate.sh\"}}' | '$SCRIPT_DIR/hooks/protect-gate-integrity.sh'"
+  [ "$status" -eq 0 ]
+}
+
+@test "protect-hooks: git checkout of a synced hook is still blocked" {
+  run bash -c "echo '{\"tool_input\":{\"command\":\"git checkout -- .claude/hooks/synced/design-gate.sh\"}}' | '$SCRIPT_DIR/hooks/protect-gate-integrity.sh'"
+  [ "$status" -eq 2 ]
+}
