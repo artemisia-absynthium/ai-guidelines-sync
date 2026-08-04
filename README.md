@@ -32,9 +32,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/artemisia-absynthium/ai-guid
 2. **Detects project type** — infers rule categories from `.xcodeproj`, `Package.swift`, `build.gradle`, `package.json`, `playwright.config.*`, `pyproject.toml`
 3. **Writes `.claude/rules-sync.txt`** — category config; skip if already exists (preserving user edits)
 4. **Writes `.github/workflows/sync-claude-rules.yml`** — thin wrapper calling the composite action; always overwritten; sync day is chosen interactively
-5. **Pre-populates rules and skills** from upstream via GitHub API (so teammates get them immediately on next clone)
+5. **Pre-populates rules, skills, and hooks** from upstream via GitHub API (so teammates get them immediately on next clone)
 6. **Writes the guard hook** to `.claude/settings.json` — blocks accidental edits to sync-managed files
-7. **Migration** — renames `.claude/rules-sync` → `.claude/rules-sync.txt`, removes the retired `setup-project-ai` skill, cleans stale category directories
+7. **Wires the gate hooks** into `.claude/settings.json` — the design gate on PR creation, the hook-integrity guard, and the design-fit reminder (see [Hooks](#hooks--the-deterministic-layer))
+8. **Migration** — renames `.claude/rules-sync` → `.claude/rules-sync.txt`, removes the retired `setup-project-ai` skill, cleans stale category directories
 
 Re-running the script is the update command — `rules-sync.txt` is preserved, everything else is refreshed. In multi-repo mode, per-repo failures are collected and printed as a summary at the end rather than aborting the run.
 
@@ -72,7 +73,8 @@ When sync logic changes, only this repo is updated — subscriber workflow files
 3. Deletes `synced/<category>/` directories for removed categories
 4. `rsync --delete` each active category from upstream into `.claude/rules/synced/<category>/`
 5. Syncs skills using a manifest (`.claude/skills/.synced-manifest`) to safely remove skills deleted upstream without touching local project skills
-6. Commits and pushes via the deploy key
+6. `rsync --delete` `hooks/` from upstream into `.claude/hooks/synced/` and restores the executable bits
+7. Commits and pushes via the deploy key
 
 ---
 
@@ -124,8 +126,18 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/xcode/schemes.md` | GUI rewrites clobber hand-edited schemes; Run args leaking into the test host |
 | `rules/xcode/test-destinations.md` | Run every supported platform; resolve destinations from the selected Xcode's SDK |
 | `rules/xcode/warnings.md` | Zero-warning policy |
+| `rules/workflow/build-discipline.md` | Build errors always in scope; human-intervention protocol |
+| `rules/workflow/code-style.md` | Comment discipline (why, never what), TECH-DEBT annotations |
 | `rules/workflow/contributing.md` | Cross-project rule contribution — invoke `lift-to-shared-rules` |
+| `rules/workflow/design-gate.md` | The deterministic design gate — note, stamp, override protocol |
+| `rules/workflow/design-principles.md` | SOLID from the start, SRP tripwire, full design-review lens |
+| `rules/workflow/docs-sync.md` | Mandatory `Docs:` report line — README currency is part of done |
+| `rules/workflow/expert-collaboration.md` | Design-fit checkpoint, "I don't know" protocol, discussion ≠ execution, mandatory dissent |
+| `rules/workflow/planning-discipline.md` | Durable plan files, divergence as re-plan trigger, wire contracts |
+| `rules/workflow/pr-review-gate.md` | Four review passes before any PR — design, code, security, concurrency |
+| `rules/workflow/review-discipline.md` | Symmetric review protocol — invariants first, blast radius, mutation-checked tests |
 | `rules/workflow/synced-rules.md` | Synced-directory layout — where to put local rules, how to opt out |
+| `rules/xcode/schemes.md` | GUI edits clobber `.xcscheme`, test-action argument inheritance |
 
 ---
 
@@ -138,6 +150,51 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `design-review-lens` | Full design-review checklist (SOLID, Clean Architecture, GRASP, Clean Code, coupling laws) for the gate's design pass or standalone reviews |
 
 After the first sync workflow run, skills are committed to `.claude/skills/<name>/` in each subscriber repo — available to all teammates automatically.
+
+---
+
+## Hooks — the deterministic layer
+
+Rules steer Claude probabilistically; hooks are code and cannot be forgotten. `hooks/` syncs
+into `.claude/hooks/synced/` in every subscriber, and `setup.sh` wires them into
+`.claude/settings.json`:
+
+| Hook | Event | What it does |
+|------|-------|--------------|
+| `design-gate.sh` | PreToolUse (Bash) | Blocks `gh pr create` / `gh pr ready` unless a valid gate stamp exists — PASS verdict, diff-hash matching the branch head |
+| `protect-synced-hooks.sh` | PreToolUse (Edit\|Write\|MultiEdit\|Bash) | Denies modification of synced hooks, their settings wiring, and the gate stamp |
+| `design-fit-reminder.sh` | UserPromptSubmit | Injects the design-fit scope check on every prompt |
+
+### The design gate flow
+
+1. Plan the feature; commit the design note (`Docs/design/<branch>.md` — see `rules/workflow/design-gate.md`)
+2. Implement
+3. `bash .claude/hooks/synced/design-gate-run.sh` — a **fresh-context** `claude -p` reviewer
+   (read-only tools, fixed adversarial prompt: full design lens, blast-radius walk,
+   test mutation-check, note conformance) prints findings and writes a stamp on PASS
+4. Fix findings, re-run until PASS — the stamp invalidates on every new commit
+5. Open the PR; the PR body carries the report lines the rule mandates
+
+Model override: `DESIGN_GATE_MODEL=<model>` (default `opus`). Human-only escape hatch:
+`DESIGN_GATE_OVERRIDE=1` — set it yourself, record it in the PR body; Claude is forbidden
+from setting it.
+
+### Hardening (optional)
+
+Local hooks stop process failures; they cannot stop a deliberately misbehaving agent with
+shell access. Two escalations, in order of strength:
+
+- **Root-ownership**: `sudo chown -R root:wheel .claude/hooks/synced && sudo chmod -R go-w .claude/hooks/synced` —
+  the agent runs as your user and cannot modify them. Trade-off: sync updates to hooks then
+  require `sudo git checkout -- .claude/hooks/synced` locally.
+- **Server-side enforcement** (the unconditional layer): run the same reviewer as a required
+  GitHub status check with branch protection on the default branch. Not part of this repo yet.
+
+### Mirror drift check
+
+Rules mirrored into a private `~/.claude/rules/` (for repos not yet enrolled) carry a
+`<!-- mirror-of: ai-guidelines-sync/rules/... -->` header. `scripts/check-rule-drift.sh`
+diffs every mirror against its canonical here and reports drift.
 
 ---
 

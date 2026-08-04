@@ -374,3 +374,176 @@ teardown() {
   grep -qx "swift" ".claude/rules-sync.txt"
   grep -qx "visionos" ".claude/rules-sync.txt"
 }
+
+# ── merge_gate_hooks ──────────────────────────────────────────────────────────
+
+@test "merge_gate_hooks: wires two PreToolUse entries and one UserPromptSubmit" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_gate_hooks
+  pre=$(jq '.hooks.PreToolUse | length' .claude/settings.json)
+  ups=$(jq '.hooks.UserPromptSubmit | length' .claude/settings.json)
+  [ "$pre" = "2" ]
+  [ "$ups" = "1" ]
+}
+
+@test "merge_gate_hooks: idempotent on second run" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_gate_hooks
+  before=$(jq -c '.hooks' .claude/settings.json)
+  merge_gate_hooks
+  after=$(jq -c '.hooks' .claude/settings.json)
+  [ "$before" = "$after" ]
+}
+
+@test "merge_gate_hooks: coexists with merge_guard_hook entries" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_guard_hook
+  merge_gate_hooks
+  pre=$(jq '.hooks.PreToolUse | length' .claude/settings.json)
+  [ "$pre" = "3" ]
+}
+
+@test "merge_gate_hooks: commands reference CLAUDE_PROJECT_DIR literally" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_gate_hooks
+  cmd=$(jq -r '.hooks.PreToolUse[0].hooks[0].command' .claude/settings.json)
+  [[ "$cmd" == '${CLAUDE_PROJECT_DIR}/.claude/hooks/synced/design-gate.sh' ]]
+}
+
+# ── design-gate.sh guard ──────────────────────────────────────────────────────
+
+# Work repo with an origin, a default branch, and a feature branch with one commit.
+make_gated_repo() {
+  git init -q --bare "$TEST_DIR/origin.git"
+  git init -q "$TEST_DIR/work"
+  cd "$TEST_DIR/work"
+  git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  git branch -m main
+  git remote add origin "$TEST_DIR/origin.git"
+  git push -q origin main
+  git fetch -q origin
+  git checkout -q -b feature
+  echo x > file.txt
+  git add file.txt
+  git -c user.email=t@t -c user.name=t commit -q -m change
+}
+
+gate_input() {
+  printf '{"cwd":"%s","tool_input":{"command":"%s"}}' "$PWD" "$1"
+}
+
+@test "design-gate: unrelated bash command is allowed" {
+  make_gated_repo
+  run bash -c "echo '$(gate_input "git status")' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 0 ]
+}
+
+@test "design-gate: gh pr create without a stamp is blocked" {
+  make_gated_repo
+  run bash -c "echo '$(gate_input "gh pr create --fill")' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "design-gate: posting a PR review is NOT gated" {
+  make_gated_repo
+  run bash -c "echo '$(gate_input "gh api repos/o/r/pulls/80/reviews --input p.json")' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 0 ]
+}
+
+@test "design-gate: gh api POST to pulls is blocked without a stamp" {
+  make_gated_repo
+  run bash -c "echo '$(gate_input "gh api repos/o/r/pulls -f title=x")' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "design-gate: valid PASS stamp with matching diff hash allows the PR" {
+  make_gated_repo
+  source "$SCRIPT_DIR/hooks/design-gate-common.sh"
+  h=$(gate_diff_hash)
+  mkdir -p .claude/design-gate
+  jq -n --arg h "$h" '{verdict:"PASS",diff_hash:$h}' > .claude/design-gate/verdict.json
+  run bash -c "echo '$(gate_input "gh pr create --fill")' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 0 ]
+}
+
+@test "design-gate: stale stamp (branch changed after gate run) is blocked" {
+  make_gated_repo
+  source "$SCRIPT_DIR/hooks/design-gate-common.sh"
+  h=$(gate_diff_hash)
+  mkdir -p .claude/design-gate
+  jq -n --arg h "$h" '{verdict:"PASS",diff_hash:$h}' > .claude/design-gate/verdict.json
+  echo y >> file.txt
+  git add file.txt
+  git -c user.email=t@t -c user.name=t commit -q -m more
+  run bash -c "echo '$(gate_input "gh pr create --fill")' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "design-gate: FAIL stamp is blocked" {
+  make_gated_repo
+  source "$SCRIPT_DIR/hooks/design-gate-common.sh"
+  h=$(gate_diff_hash)
+  mkdir -p .claude/design-gate
+  jq -n --arg h "$h" '{verdict:"FAIL",diff_hash:$h}' > .claude/design-gate/verdict.json
+  run bash -c "echo '$(gate_input "gh pr create --fill")' | '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "design-gate: human override allows without a stamp" {
+  make_gated_repo
+  run bash -c "echo '$(gate_input "gh pr create --fill")' | DESIGN_GATE_OVERRIDE=1 '$SCRIPT_DIR/hooks/design-gate.sh'"
+  [ "$status" -eq 0 ]
+}
+
+# ── protect-synced-hooks.sh ───────────────────────────────────────────────────
+
+@test "protect-hooks: Write to a synced hook is blocked" {
+  run bash -c "echo '{\"tool_input\":{\"file_path\":\"/repo/.claude/hooks/synced/design-gate.sh\"}}' | '$SCRIPT_DIR/hooks/protect-synced-hooks.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "protect-hooks: Edit to settings.json is blocked" {
+  run bash -c "echo '{\"tool_input\":{\"file_path\":\"/repo/.claude/settings.json\"}}' | '$SCRIPT_DIR/hooks/protect-synced-hooks.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "protect-hooks: bash tampering with the stamp is blocked" {
+  run bash -c "echo '{\"tool_input\":{\"command\":\"echo x > .claude/design-gate/verdict.json\"}}' | '$SCRIPT_DIR/hooks/protect-synced-hooks.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "protect-hooks: running the gate runner is allowed" {
+  run bash -c "echo '{\"tool_input\":{\"command\":\"bash .claude/hooks/synced/design-gate-run.sh\"}}' | '$SCRIPT_DIR/hooks/protect-synced-hooks.sh'"
+  [ "$status" -eq 0 ]
+}
+
+@test "protect-hooks: runner with model override is allowed" {
+  run bash -c "echo '{\"tool_input\":{\"command\":\"DESIGN_GATE_MODEL=sonnet bash .claude/hooks/synced/design-gate-run.sh\"}}' | '$SCRIPT_DIR/hooks/protect-synced-hooks.sh'"
+  [ "$status" -eq 0 ]
+}
+
+@test "protect-hooks: runner invocation with a trailing redirect is blocked" {
+  run bash -c "echo '{\"tool_input\":{\"command\":\"bash .claude/hooks/synced/design-gate-run.sh > /dev/null; echo PASS > .claude/design-gate/verdict.json\"}}' | '$SCRIPT_DIR/hooks/protect-synced-hooks.sh'"
+  [ "$status" -eq 2 ]
+}
+
+@test "protect-hooks: unrelated command is allowed" {
+  run bash -c "echo '{\"tool_input\":{\"command\":\"git status\"}}' | '$SCRIPT_DIR/hooks/protect-synced-hooks.sh'"
+  [ "$status" -eq 0 ]
+}
+
+# ── design-fit-reminder.sh ────────────────────────────────────────────────────
+
+@test "design-fit-reminder: exits 0 and prints the scope-check context" {
+  run "$SCRIPT_DIR/hooks/design-fit-reminder.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Design fit:"* ]]
+}

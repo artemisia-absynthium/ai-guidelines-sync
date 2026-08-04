@@ -449,12 +449,19 @@ sync_upstream() {
     done < <(echo "$tree_json" | jq -r \
         '.tree[] | select(.type=="blob") | .path | select(startswith("skills/"))' \
         2>/dev/null || true)
+    while IFS= read -r p; do
+        [ -n "$p" ] && upstream_paths+=("$p")
+    done < <(echo "$tree_json" | jq -r \
+        '.tree[] | select(.type=="blob") | .path | select(startswith("hooks/"))' \
+        2>/dev/null || true)
 
     local upstream_path dest_path skill_name content
     local -a synced_skill_names=()
     for upstream_path in "${upstream_paths[@]}"; do
         if [[ "$upstream_path" == rules/* ]]; then
             dest_path=".claude/rules/synced/${upstream_path#rules/}"
+        elif [[ "$upstream_path" == hooks/* ]]; then
+            dest_path=".claude/hooks/synced/${upstream_path#hooks/}"
         else
             dest_path=".claude/${upstream_path}"
         fi
@@ -465,6 +472,7 @@ sync_upstream() {
             continue
         }
         printf '%s' "$content" > "$dest_path"
+        [[ "$dest_path" == .claude/hooks/synced/*.sh ]] && chmod +x "$dest_path"
         WRITTEN_FILES+=("$dest_path")
         if [[ "$upstream_path" == skills/* ]]; then
             skill_name=$(echo "$upstream_path" | cut -d/ -f2)
@@ -500,6 +508,50 @@ merge_guard_hook() {
     fi
 }
 
+# Wire the synced gate hooks into .claude/settings.json (idempotent per entry).
+# Commands reference ${CLAUDE_PROJECT_DIR} literally — expanded by Claude Code at hook time.
+merge_gate_hooks() {
+    local settings_file=".claude/settings.json"
+    [ -f "$settings_file" ] || echo '{}' > "$settings_file"
+
+    # shellcheck disable=SC2016
+    local base='${CLAUDE_PROJECT_DIR}/.claude/hooks/synced'
+    local tmp added=false
+
+    if grep -q "design-gate.sh" "$settings_file" 2>/dev/null; then
+        SKIPPED_FILES+=(".claude/settings.json (design-gate hook already present)")
+    else
+        tmp=$(mktemp)
+        jq --arg cmd "${base}/design-gate.sh" \
+            '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{"matcher":"Bash","hooks":[{"type":"command","command":$cmd}]}])' \
+            "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
+        added=true
+    fi
+
+    if grep -q "protect-synced-hooks.sh" "$settings_file" 2>/dev/null; then
+        SKIPPED_FILES+=(".claude/settings.json (integrity hook already present)")
+    else
+        tmp=$(mktemp)
+        jq --arg cmd "${base}/protect-synced-hooks.sh" \
+            '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{"matcher":"Edit|Write|MultiEdit|Bash","hooks":[{"type":"command","command":$cmd}]}])' \
+            "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
+        added=true
+    fi
+
+    if grep -q "design-fit-reminder.sh" "$settings_file" 2>/dev/null; then
+        SKIPPED_FILES+=(".claude/settings.json (design-fit reminder already present)")
+    else
+        tmp=$(mktemp)
+        jq --arg cmd "${base}/design-fit-reminder.sh" \
+            '.hooks = (.hooks // {}) | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{"hooks":[{"type":"command","command":$cmd}]}])' \
+            "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
+        added=true
+    fi
+
+    [ "$added" = true ] && WRITTEN_FILES+=(".claude/settings.json (gate hooks wired)")
+    return 0
+}
+
 report_results() {
     echo ""
     echo -e "${BOLD}${GREEN}Done — $(pwd)${NC}"
@@ -518,6 +570,9 @@ report_results() {
     echo "     See: https://github.com/artemisia-absynthium/ai-guidelines-sync#adding-a-deploy-key"
     echo "  2. Commit and push all new/modified files"
     echo "  3. Actions → Sync Claude Rules and Skills → Run workflow (to verify the action runs)"
+    echo "  4. Optional hardening — make the gate hooks locally immutable (root-owned):"
+    echo "     sudo chown -R root:wheel .claude/hooks/synced && sudo chmod -R go-w .claude/hooks/synced"
+    echo "     Trade-off: hook updates from sync then require 'sudo git checkout -- .claude/hooks/synced'"
 }
 
 setup_project() {
@@ -543,6 +598,7 @@ setup_project() {
     write_workflow_file
     sync_upstream ${active_cats[@]+"${active_cats[@]}"}
     merge_guard_hook
+    merge_gate_hooks
     report_results
 }
 

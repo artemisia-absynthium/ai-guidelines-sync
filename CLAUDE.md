@@ -32,8 +32,8 @@ No other build step or package manager.
 
 | Layer | What it does | Mechanism |
 |---|---|---|
-| Project setup | Scaffold dirs, write rules-sync.txt, write thin workflow, pre-populate rules/skills, write guard hook | `setup.sh` (curl-runnable bash script) |
-| Ongoing sync | Pull latest rules/skills from upstream, auto-detect new categories, cleanup stale, commit | Composite action at `.github/actions/sync/action.yml` |
+| Project setup | Scaffold dirs, write rules-sync.txt, write thin workflow, pre-populate rules/skills/hooks, wire guard + gate hooks into settings.json | `setup.sh` (curl-runnable bash script) |
+| Ongoing sync | Pull latest rules/skills/hooks from upstream, auto-detect new categories, cleanup stale, commit | Composite action at `.github/actions/sync/action.yml` |
 
 The skill layer is kept for tasks that require reasoning:
 
@@ -60,11 +60,26 @@ never need updating. To change sync logic, commit here.
 One category per line. Comment out a line to explicitly exclude it — it won't be re-added by
 auto-detection. The action auto-adds newly detected categories on the next sync unless commented out.
 
+### Hooks (`hooks/`) — the deterministic layer
+
+Rules steer probabilistically; hooks are code. Synced verbatim into subscribers'
+`.claude/hooks/synced/` (rsync --delete, executable bits restored); `setup.sh` wires the
+settings entries via `merge_gate_hooks` (idempotent per entry, commands reference
+`${CLAUDE_PROJECT_DIR}` literally). Three hooks: `design-gate.sh` (PreToolUse/Bash — blocks
+PR creation without a PASS stamp keyed to the branch diff hash), `protect-synced-hooks.sh`
+(PreToolUse — integrity: denies modification of synced hooks, settings wiring, and the gate
+stamp; the only allowed touch is executing `design-gate-run.sh` bare), `design-fit-reminder.sh`
+(UserPromptSubmit — injects the scope-check on every prompt). `design-gate-run.sh` +
+`design-gate-prompt.md` + `design-gate-common.sh` implement the runner: fresh-context
+`claude -p` reviewer, stamp in `.claude/design-gate/` (self-gitignoring). Hook scripts share
+setup.sh's bash 3.2 constraints. Protocol doc: `rules/workflow/design-gate.md`.
+
 ### Design invariant
 
 Rules sync writes only to `.claude/rules/synced/` — a managed directory. Skills sync writes to
 `.claude/skills/<name>/` alongside local project skills; the manifest tracks upstream removals
-without touching local skills. Subscriber-local rules live directly in `.claude/rules/` (no subdirectory).
+without touching local skills. Hooks sync writes only to `.claude/hooks/synced/`.
+Subscriber-local rules live directly in `.claude/rules/` (no subdirectory).
 `setup.sh` also installs a `PreToolUse` guard hook in `.claude/settings.json` that blocks edits to
 `synced/` and redirects to `.claude/rules/`.
 
