@@ -121,6 +121,8 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/web/playwright.md` | Playwright test execution vs visual verification |
 | `rules/xcode/mcp-tools.md` | Xcode MCP tools for file ops, build, test, preview, code intelligence |
 | `rules/xcode/packages.md` | SPM only — no CocoaPods or Carthage |
+| `rules/xcode/schemes.md` | GUI rewrites clobber hand-edited schemes; Run args leaking into the test host |
+| `rules/xcode/test-destinations.md` | Run every supported platform; resolve destinations from the selected Xcode's SDK |
 | `rules/xcode/warnings.md` | Zero-warning policy |
 | `rules/workflow/contributing.md` | Cross-project rule contribution — invoke `lift-to-shared-rules` |
 | `rules/workflow/synced-rules.md` | Synced-directory layout — where to put local rules, how to opt out |
