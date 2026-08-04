@@ -66,9 +66,9 @@ Rules steer probabilistically; hooks are code. Synced verbatim into subscribers'
 `.claude/hooks/synced/` (rsync --delete, executable bits restored); `setup.sh` wires the
 settings entries via `merge_gate_hooks` (idempotent per entry, commands reference
 `${CLAUDE_PROJECT_DIR}` literally). Three hooks: `design-gate.sh` (PreToolUse/Bash — blocks
-PR creation without a PASS stamp keyed to the branch diff hash), `protect-synced-hooks.sh`
-(PreToolUse — integrity: denies modification of synced hooks, settings wiring, and the gate
-stamp; the only allowed touch is executing `design-gate-run.sh` bare), `design-fit-reminder.sh`
+PR creation without a PASS stamp keyed to the branch diff hash), `protect-gate-integrity.sh`
+(PreToolUse — Bash half of integrity; the file-tool half is permissions.deny Edit rules
+written by setup.sh; only allowed touch: executing `design-gate-run.sh` as a single-line command), `design-fit-reminder.sh`
 (UserPromptSubmit — injects the scope-check on every prompt). `design-gate-run.sh` +
 `design-gate-prompt.md` + `design-gate-common.sh` implement the runner: fresh-context
 `claude -p` reviewer, stamp in `.claude/design-gate/` (self-gitignoring). Hook scripts share

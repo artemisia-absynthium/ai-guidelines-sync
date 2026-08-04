@@ -47,3 +47,9 @@ commits. Reviewer-prescribed fixes are NOT exempt: implementing a prescription c
 itself introduce a defect the prescription didn't anticipate (e.g. a remedy that hides
 a symptom while leaving related state inconsistent), and only a review of the delta is
 positioned to catch it.
+
+## Composition with the design gate
+
+Where the design gate is installed (`rules/workflow/design-gate.md`), its fresh-context
+run is the hardened form of pass 1: run passes 2–4 first, then the gate last, so its
+stamp certifies the final diff.

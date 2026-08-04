@@ -449,11 +449,13 @@ sync_upstream() {
     done < <(echo "$tree_json" | jq -r \
         '.tree[] | select(.type=="blob") | .path | select(startswith("skills/"))' \
         2>/dev/null || true)
-    while IFS= read -r p; do
-        [ -n "$p" ] && upstream_paths+=("$p")
-    done < <(echo "$tree_json" | jq -r \
-        '.tree[] | select(.type=="blob") | .path | select(startswith("hooks/"))' \
-        2>/dev/null || true)
+    if ! hooks_opted_out; then
+        while IFS= read -r p; do
+            [ -n "$p" ] && upstream_paths+=("$p")
+        done < <(echo "$tree_json" | jq -r \
+            '.tree[] | select(.type=="blob") | .path | select(startswith("hooks/"))' \
+            2>/dev/null || true)
+    fi
 
     local upstream_path dest_path skill_name content
     local -a synced_skill_names=()
@@ -472,7 +474,17 @@ sync_upstream() {
             continue
         }
         printf '%s' "$content" > "$dest_path"
-        [[ "$dest_path" == .claude/hooks/synced/*.sh ]] && chmod +x "$dest_path"
+        if [[ "$dest_path" == .claude/hooks/synced/*.sh ]]; then
+            # An empty or truncated hook would exit 0 forever — a gate that silently
+            # stopped gating. Refuse to make anything without a shebang executable.
+            if head -1 "$dest_path" | grep -q '^#!'; then
+                chmod +x "$dest_path"
+            else
+                rm -f "$dest_path"
+                warn "fetched hook is empty or malformed, discarded: $upstream_path"
+                continue
+            fi
+        fi
         WRITTEN_FILES+=("$dest_path")
         if [[ "$upstream_path" == skills/* ]]; then
             skill_name=$(echo "$upstream_path" | cut -d/ -f2)
@@ -510,45 +522,78 @@ merge_guard_hook() {
 
 # Wire the synced gate hooks into .claude/settings.json (idempotent per entry).
 # Commands reference ${CLAUDE_PROJECT_DIR} literally — expanded by Claude Code at hook time.
-merge_gate_hooks() {
-    local settings_file=".claude/settings.json"
-    [ -f "$settings_file" ] || echo '{}' > "$settings_file"
+# Each entry is wired only if its script actually landed (a failed upstream fetch must not
+# leave settings pointing at nothing — a missing hook command is a NON-blocking error, so
+# the gate would be silently inert). Opt-out: a "# hooks" line in rules-sync.txt.
+GATE_HOOKS_WIRED=false
 
+hooks_opted_out() {
+    [ -f ".claude/rules-sync.txt" ] || return 1
+    grep -qE '^[[:space:]]*#[[:space:]]*hooks[[:space:]]*$' ".claude/rules-sync.txt"
+}
+
+# merge_one_gate_entry <sentinel> <script-relpath> <jq-filter-with-$cmd>
+merge_one_gate_entry() {
+    local sentinel=$1 script=$2 filter=$3
+    local settings_file=".claude/settings.json"
     # shellcheck disable=SC2016
     local base='${CLAUDE_PROJECT_DIR}/.claude/hooks/synced'
-    local tmp added=false
+    local tmp
 
-    if grep -q "design-gate.sh" "$settings_file" 2>/dev/null; then
-        SKIPPED_FILES+=(".claude/settings.json (design-gate hook already present)")
+    if [ ! -f ".claude/hooks/synced/${script}" ]; then
+        warn "hook not present, NOT wiring: ${script} (re-run setup after the first sync)"
+        return 0
+    fi
+    if grep -q "$sentinel" "$settings_file" 2>/dev/null; then
+        SKIPPED_FILES+=(".claude/settings.json (${sentinel} already present)")
+        return 0
+    fi
+    tmp=$(mktemp)
+    if jq --arg cmd "${base}/${script}" "$filter" "$settings_file" > "$tmp"; then
+        mv "$tmp" "$settings_file"
+        GATE_HOOKS_WIRED=true
     else
+        rm -f "$tmp"
+        warn ".claude/settings.json is not valid JSON — ${sentinel} NOT wired"
+    fi
+    return 0
+}
+
+merge_gate_hooks() {
+    local settings_file=".claude/settings.json"
+    if hooks_opted_out; then
+        SKIPPED_FILES+=("gate hooks (opted out via '# hooks' in rules-sync.txt)")
+        return 0
+    fi
+    [ -f "$settings_file" ] || echo '{}' > "$settings_file"
+
+    merge_one_gate_entry "design-gate.sh" "design-gate.sh" \
+        '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{"matcher":"Bash","hooks":[{"type":"command","command":$cmd}]}])'
+    merge_one_gate_entry "protect-gate-integrity.sh" "protect-gate-integrity.sh" \
+        '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{"matcher":"Edit|Write|MultiEdit|Bash","hooks":[{"type":"command","command":$cmd}]}])'
+    merge_one_gate_entry "design-fit-reminder.sh" "design-fit-reminder.sh" \
+        '.hooks = (.hooks // {}) | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{"hooks":[{"type":"command","command":$cmd}]}])'
+
+    # File-tool half of gate integrity: harness-normalized deny rules (Edit rules cover
+    # ALL file-editing tools — a Write() rule would not match file permission checks).
+    if ! grep -q 'design-gate/\*\*' "$settings_file" 2>/dev/null; then
+        local tmp
         tmp=$(mktemp)
-        jq --arg cmd "${base}/design-gate.sh" \
-            '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{"matcher":"Bash","hooks":[{"type":"command","command":$cmd}]}])' \
-            "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
-        added=true
+        if jq '.permissions = (.permissions // {}) | .permissions.deny = ((.permissions.deny // []) + ["Edit(.claude/hooks/synced/**)","Edit(.claude/design-gate/**)","Edit(.claude/settings.json)","Edit(.claude/settings.local.json)"] | unique)' \
+            "$settings_file" > "$tmp"; then
+            mv "$tmp" "$settings_file"
+            GATE_HOOKS_WIRED=true
+        else
+            rm -f "$tmp"
+            warn ".claude/settings.json is not valid JSON — integrity deny rules NOT added"
+        fi
     fi
 
-    if grep -q "protect-synced-hooks.sh" "$settings_file" 2>/dev/null; then
-        SKIPPED_FILES+=(".claude/settings.json (integrity hook already present)")
-    else
-        tmp=$(mktemp)
-        jq --arg cmd "${base}/protect-synced-hooks.sh" \
-            '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{"matcher":"Edit|Write|MultiEdit|Bash","hooks":[{"type":"command","command":$cmd}]}])' \
-            "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
-        added=true
+    if [ "$GATE_HOOKS_WIRED" = true ]; then
+        WRITTEN_FILES+=(".claude/settings.json (gate hooks wired)")
+        # The gate hooks make jq a permanent runtime dependency — never uninstall it.
+        JQ_INSTALLED_BY_SCRIPT=false
     fi
-
-    if grep -q "design-fit-reminder.sh" "$settings_file" 2>/dev/null; then
-        SKIPPED_FILES+=(".claude/settings.json (design-fit reminder already present)")
-    else
-        tmp=$(mktemp)
-        jq --arg cmd "${base}/design-fit-reminder.sh" \
-            '.hooks = (.hooks // {}) | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{"hooks":[{"type":"command","command":$cmd}]}])' \
-            "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
-        added=true
-    fi
-
-    [ "$added" = true ] && WRITTEN_FILES+=(".claude/settings.json (gate hooks wired)")
     return 0
 }
 

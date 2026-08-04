@@ -161,8 +161,8 @@ into `.claude/hooks/synced/` in every subscriber, and `setup.sh` wires them into
 
 | Hook | Event | What it does |
 |------|-------|--------------|
-| `design-gate.sh` | PreToolUse (Bash) | Blocks `gh pr create` / `gh pr ready` unless a valid gate stamp exists — PASS verdict, diff-hash matching the branch head |
-| `protect-synced-hooks.sh` | PreToolUse (Edit\|Write\|MultiEdit\|Bash) | Denies modification of synced hooks, their settings wiring, and the gate stamp |
+| `design-gate.sh` | PreToolUse (Bash) | Blocks PR-opening commands (`gh pr create`/`ready`, `gh api`/REST/GraphQL equivalents) unless a valid gate stamp exists — PASS verdict, diff-hash matching the branch head, local HEAD pushed |
+| `protect-gate-integrity.sh` | PreToolUse (Edit\|Write\|MultiEdit\|Bash) | Bash-command half of gate integrity (file-tool half is `permissions.deny` Edit rules written by setup.sh): denies touching synced hooks, settings wiring, the gate stamp, or their containers |
 | `design-fit-reminder.sh` | UserPromptSubmit | Injects the design-fit scope check on every prompt |
 
 ### The design gate flow
@@ -184,11 +184,22 @@ from setting it.
 Local hooks stop process failures; they cannot stop a deliberately misbehaving agent with
 shell access. Two escalations, in order of strength:
 
-- **Root-ownership**: `sudo chown -R root:wheel .claude/hooks/synced && sudo chmod -R go-w .claude/hooks/synced` —
-  the agent runs as your user and cannot modify them. Trade-off: sync updates to hooks then
-  require `sudo git checkout -- .claude/hooks/synced` locally.
+- **Root-ownership**: `sudo chown root:wheel .claude .claude/hooks .claude/hooks/synced .claude/hooks/synced/* && sudo chmod go-w .claude .claude/hooks .claude/hooks/synced .claude/hooks/synced/*` —
+  the parent directories must be root-owned too (renaming a directory needs write permission
+  on its PARENT, so root-owning only the files still allows `mv .claude/hooks /tmp`).
+  Honest limits: the stamp directory must stay user-writable (the runner runs as you), so
+  root-ownership protects the hooks, never the stamp; and sync updates to hooks then require
+  `sudo git checkout -- .claude/hooks/synced` locally.
 - **Server-side enforcement** (the unconditional layer): run the same reviewer as a required
   GitHub status check with branch protection on the default branch. Not part of this repo yet.
+
+### Existing subscribers
+
+The sync action delivers hook *files*; it never edits `settings.json`. Repos enrolled
+before hooks existed get the files on the next sync but stay inert until someone re-runs
+`setup.sh` once (it wires the settings entries and the `permissions.deny` rules).
+To decline hooks entirely, add a `# hooks` line to `.claude/rules-sync.txt` — both setup
+and the action honor it.
 
 ### Mirror drift check
 

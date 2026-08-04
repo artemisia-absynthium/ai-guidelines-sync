@@ -6,9 +6,20 @@ paths:
 
 # Design gate — no verdict, no PR
 
-A PreToolUse hook (synced to `.claude/hooks/synced/design-gate.sh`) blocks `gh pr create` /
-`gh pr ready` unless a valid gate stamp exists. This is deterministic: the gate cannot be
-skipped by forgetting it. This rule documents the protocol the hook enforces.
+A PreToolUse hook (synced to `.claude/hooks/synced/design-gate.sh`) blocks PR-opening
+commands — `gh pr create`, `gh pr ready`, and their `gh api`/REST/GraphQL equivalents —
+unless a valid gate stamp exists: PASS verdict, diff-hash matching the branch head, and
+local HEAD pushed. This is deterministic: the gate cannot be skipped by forgetting it.
+This rule documents the protocol the hook enforces.
+
+**Relationship to the pr-review-gate**: the gate's fresh-context run IS pass 1
+(design/SOLID) of `pr-review-gate.md`, hardened — independent context, fixed prompt,
+mechanical enforcement. Run passes 2–4 (code, security, concurrency) first, resolve their
+findings, then run this gate last so its stamp certifies the final diff.
+
+**Residual window (stated, not solved locally)**: a hook cannot be atomic with the command
+it guards, and pushes after the PR exists are ungated — the local gate certifies the PR's
+opening state. The unconditional layer is a server-side required check.
 
 ## The design note — written at plan time, committed on the branch
 

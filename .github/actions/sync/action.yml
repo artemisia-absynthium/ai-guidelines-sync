@@ -230,6 +230,20 @@ runs:
           echo "No hooks directory in upstream — skipping hook sync"
           exit 0
         fi
+        if [ -f ".claude/rules-sync.txt" ] \
+            && grep -qE '^[[:space:]]*#[[:space:]]*hooks[[:space:]]*$' ".claude/rules-sync.txt"; then
+          echo "Hooks opted out via '# hooks' in rules-sync.txt — skipping hook sync"
+          exit 0
+        fi
+
+        # An empty or truncated hook would exit 0 forever — refuse anything without a shebang.
+        for f in "$hooks_src"/*.sh; do
+          [ -f "$f" ] || continue
+          if ! head -1 "$f" | grep -q '^#!'; then
+            echo "Malformed hook in upstream (no shebang): $f — aborting hook sync" >&2
+            exit 1
+          fi
+        done
 
         mkdir -p "$hooks_dst"
         rsync -a --delete "$hooks_src/" "$hooks_dst/"
@@ -248,5 +262,5 @@ runs:
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add .claude/
         git diff --staged --quiet \
-          || git commit -m "chore: sync Claude Code rules and skills"
+          || git commit -m "chore: sync Claude Code rules, skills, and hooks"
         git push

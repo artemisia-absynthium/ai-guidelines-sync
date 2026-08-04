@@ -32,6 +32,10 @@ gate_diff_hash() {
     fi
 }
 
-GATE_DIR=".claude/design-gate"
+# Anchored to the repo root — hooks and the runner may execute from any subdirectory.
+GATE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || GATE_ROOT="."
+GATE_DIR="${GATE_ROOT}/.claude/design-gate"
+# Stamp schema (two-script contract, written only by design-gate-run.sh, read by
+# design-gate.sh): {verdict: "PASS"|"FAIL", diff_hash, branch, model, timestamp}.
 GATE_STAMP="${GATE_DIR}/verdict.json"
 GATE_FINDINGS="${GATE_DIR}/last-review.md"

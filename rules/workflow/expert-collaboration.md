@@ -12,8 +12,10 @@ and silence about known risks. Calibrate accordingly.
 
 ## Design-fit checkpoint — mandatory on scope change
 
-When new work arrives after a plan is partially or fully executed — a new requirement, an
-emergent edge case, a "while you're at it" — STOP before any tool call and answer explicitly:
+When new work arrives FROM THE USER after a plan is partially or fully executed — a new
+requirement, an emergent edge case, a "while you're at it" — STOP before any tool call and
+answer explicitly (execution diverging from the plan on its own is the sibling case, owned
+by planning-discipline's re-plan trigger):
 
 ```
 Design fit: unchanged because <reason> | changed → re-entering plan mode

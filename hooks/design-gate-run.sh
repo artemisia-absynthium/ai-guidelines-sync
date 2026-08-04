@@ -15,6 +15,10 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
 PROMPT_FILE="${SCRIPT_DIR}/design-gate-prompt.md"
 MODEL="${DESIGN_GATE_MODEL:-opus}"
+case "$MODEL" in
+    opus|sonnet) ;;
+    *) echo "design-gate-run: DESIGN_GATE_MODEL must be opus or sonnet (got '${MODEL}')" >&2; exit 1 ;;
+esac
 
 fail() { echo "design-gate-run: $1" >&2; exit 1; }
 
@@ -30,6 +34,11 @@ DIFF_HASH=$(gate_diff_hash) || fail "cannot hash the branch diff"
 
 if git diff --quiet "${BASE}..HEAD"; then
     fail "no committed changes vs origin/${DEFAULT_BRANCH} — nothing to review"
+fi
+# The reviewer reads files at working-tree state, but the stamp keys the COMMITTED diff —
+# a dirty tree would attach the verdict to content the reviewer never certified.
+if [ -n "$(git status --porcelain)" ]; then
+    fail "working tree is dirty — commit or stash everything before running the gate"
 fi
 
 mkdir -p "$GATE_DIR"
@@ -51,10 +60,10 @@ RESULT_JSON=$(claude -p "$PROMPT" \
     --output-format json \
     --allowedTools "Read Grep Glob Bash(git diff:*) Bash(git log:*) Bash(git show:*) Bash(git merge-base:*) Bash(git rev-parse:*)") || fail "claude -p failed"
 
+printf '%s' "$RESULT_JSON" > "${GATE_DIR}/last-raw.json"
 REVIEW_TEXT=$(printf '%s' "$RESULT_JSON" | jq -r '.result // empty') || true
 [ -n "${REVIEW_TEXT:-}" ] || fail "empty reviewer result — raw output kept in ${GATE_DIR}/last-raw.json"
 
-printf '%s' "$RESULT_JSON" > "${GATE_DIR}/last-raw.json"
 printf '%s\n' "$REVIEW_TEXT" > "$GATE_FINDINGS"
 
 VERDICT=$(printf '%s\n' "$REVIEW_TEXT" | grep -E '^VERDICT: (PASS|FAIL)[[:space:]]*$' | tail -1 | awk '{print $2}') || true
@@ -67,7 +76,7 @@ jq -n \
     --arg model "$MODEL" \
     --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{verdict:$verdict, diff_hash:$diff_hash, branch:$branch, model:$model, timestamp:$timestamp}' \
-    > "$GATE_STAMP"
+    > "${GATE_STAMP}.tmp.$$" && mv "${GATE_STAMP}.tmp.$$" "$GATE_STAMP"
 
 echo ""
 printf '%s\n' "$REVIEW_TEXT"
