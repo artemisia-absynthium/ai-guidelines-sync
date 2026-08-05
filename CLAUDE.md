@@ -87,3 +87,10 @@ Subscriber-local rules live directly in `.claude/rules/` (no subdirectory).
 
 Use the `lift-to-shared-rules` skill. It reads the local clone path from `CLAUDE_SETUP_PATH`
 (set in `~/.zshenv`). Teammates without push access get a fork/PR flow automatically.
+
+## Public-repo boundary
+
+This repo is PUBLIC. Client, project, and employer names never appear in content,
+commit messages, or branches. A commit-msg guard (`.githooks/`, enable with
+`git config core.hooksPath .githooks`) denies messages matching the private
+denylist at `~/.claude/private-terms.txt` — keep that file out of any repo.
