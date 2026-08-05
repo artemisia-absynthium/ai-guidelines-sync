@@ -90,7 +90,7 @@ The nanoseconds form is easy to reach for from training data but has no place in
 
 ## Concurrency review lens (pre-PR gate, pass 4)
 
-The Swift-concrete checklist for the workflow `pr-review-gate.md` concurrency pass. Each
+The Swift-concrete checklist for the `pr-review-gate` skill's concurrency pass. Each
 item is a bug class that has shipped past general review:
 
 - **Actor reentrancy**: any state read before an `await` and used after it must be
