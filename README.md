@@ -134,7 +134,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/workflow/docs-sync.md` | Mandatory `Docs:` report line — README currency is part of done |
 | `rules/workflow/expert-collaboration.md` | Design-fit checkpoint, "I don't know" protocol, discussion ≠ execution, mandatory dissent |
 | `rules/workflow/planning-discipline.md` | Durable plan files, divergence as re-plan trigger, wire contracts |
-| `rules/workflow/pr-review-gate.md` | Four review passes before any PR — design, code, security, concurrency |
+| `skills/pr-review-gate` | Four review passes before any PR (on-demand skill; the design gate hardens pass 1) |
 | `rules/workflow/review-discipline.md` | Symmetric review protocol — invariants first, blast radius, mutation-checked tests |
 | `rules/workflow/synced-rules.md` | Synced-directory layout — where to put local rules, how to opt out |
 | `rules/xcode/schemes.md` | GUI edits clobber `.xcscheme`, test-action argument inheritance |

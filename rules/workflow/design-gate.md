@@ -14,7 +14,7 @@ auto-push offer arrives too late; the gate denies first). This is deterministic:
 This rule documents the protocol the hook enforces.
 
 **Relationship to the pr-review-gate**: the gate's fresh-context run IS pass 1
-(design/SOLID) of `pr-review-gate.md`, hardened — independent context, fixed prompt,
+(design/SOLID) of the `pr-review-gate` skill, hardened — independent context, fixed prompt,
 mechanical enforcement. Run passes 2–4 (code, security, concurrency) first, resolve their
 findings, then run this gate last so its stamp certifies the final diff.
 
