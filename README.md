@@ -133,6 +133,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/workflow/design-principles.md` | SOLID from the start, SRP tripwire, full design-review lens |
 | `rules/workflow/docs-sync.md` | Mandatory `Docs:` report line — README currency is part of done |
 | `rules/workflow/expert-collaboration.md` | Design-fit checkpoint, "I don't know" protocol, discussion ≠ execution, mandatory dissent |
+| `rules/workflow/invariant-first.md` | Properties before mechanisms, named enforcement points, epistemic typing, property-test-first TDD |
 | `rules/workflow/planning-discipline.md` | Durable plan files, divergence as re-plan trigger, wire contracts |
 | `skills/pr-review-gate` | Four review passes before any PR (on-demand skill; the design gate hardens pass 1) |
 | `rules/workflow/review-discipline.md` | Symmetric review protocol — invariants first, blast radius, mutation-checked tests |

@@ -71,3 +71,10 @@ The comprehensive review checklist (SOLID, Clean Architecture, GRASP, Clean Code
 coupling laws, guardrails) lives in the `design-review-lens` skill — invoke it for the
 design pass of the PR gate or any standalone design review. This file keeps only what
 must be active while planning and writing code.
+
+## Invariant-first (companion rule)
+
+Type-level design (this file) says who owns what; `invariant-first.md` says what must stay
+true and who enforces it — properties before mechanisms, enforcement points named at plan
+time, values epistemically typed, property tests before the mechanism. Both apply to every
+plan; neither substitutes for the other.
