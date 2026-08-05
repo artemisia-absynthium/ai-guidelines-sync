@@ -33,8 +33,13 @@ which applies regardless:
   Coupling / High Cohesion on every new dependency edge, Controller (entry points only
   delegate), Polymorphism over type-tag switches.
 - **Clean Code** — intention-revealing names (purpose, never mechanism); small functions,
-  one abstraction level; CQS; no side effects behind innocent names; DRY on knowledge,
-  not on code (the wrong abstraction is costlier than duplication).
+  one abstraction level; CQS; no side effects behind innocent names.
+- **DRY — always, on knowledge** — every piece of knowledge has exactly one authoritative
+  representation; duplicated knowledge is a finding with no grace period. A wrong
+  abstraction is fixed by redesigning it — splitting fused meanings, moving the boundary —
+  never by inlining copies; "we'll duplicate for now" is not a resolution. Code that merely
+  looks alike while encoding different decisions is not duplication: unify by meaning,
+  never by textual resemblance.
 - **Coupling laws** — Law of Demeter (`a.b().c()` chains are findings), Tell-Don't-Ask,
   composition over inheritance.
 - **State ownership** — every new piece of state names its owner and lifetime (who resets

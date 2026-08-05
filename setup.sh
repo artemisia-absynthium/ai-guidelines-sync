@@ -43,11 +43,35 @@ cleanup_deps() {
 
 trap cleanup_deps EXIT
 
+# The default-branch resolution below is DERIVED — its single authoritative
+# representation is gate_default_branch in hooks/design-gate-common.sh. Refresh with
+# scripts/embed-common.sh; tests enforce byte-identity. (setup.sh must stay curl-runnable
+# as one self-contained file, so the knowledge is embedded at commit time.)
+# >>> embedded-from: hooks/design-gate-common.sh
+gate_default_branch() {
+    local b
+    b=$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null \
+        | sed 's|refs/remotes/origin/||') || true
+    if [ -n "${b:-}" ]; then
+        echo "$b"
+        return 0
+    fi
+    for b in develop main master; do
+        if git show-ref --verify --quiet "refs/remotes/origin/${b}"; then
+            echo "$b"
+            return 0
+        fi
+    done
+    return 1
+}
+# <<< embedded-from: hooks/design-gate-common.sh
+
 # ── Git helpers ───────────────────────────────────────────────────────────────
 checkout_default_and_pull() {
     local default_branch
-    default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
-        | sed 's|refs/remotes/origin/||') || true
+    default_branch=$(gate_default_branch) || true
+    # Setup-specific policy, not duplicated knowledge: with no resolvable default at all,
+    # assume main and let the checkout below fail loudly.
     : "${default_branch:=main}"
 
     # No commits yet — nothing to check out; proceed on current (empty) branch.

@@ -716,3 +716,10 @@ gate_input() {
   run bash -c "echo '{\"tool_input\":{\"command\":\"git checkout -- .claude/hooks/synced/design-gate.sh\"}}' | '$SCRIPT_DIR/hooks/protect-gate-integrity.sh'"
   [ "$status" -eq 2 ]
 }
+
+@test "embedded gate_default_branch is byte-identical to its authoritative source" {
+  src=$(awk '/^gate_default_branch\(\) \{/{f=1} f{print} f&&/^\}/{exit}' "$SCRIPT_DIR/hooks/design-gate-common.sh")
+  emb=$(awk '/^# >>> embedded-from: hooks\/design-gate-common\.sh/{f=1;next} /^# <<< embedded-from/{f=0} f' "$SCRIPT_DIR/setup.sh")
+  [ -n "$src" ]
+  [ "$src" = "$emb" ]
+}

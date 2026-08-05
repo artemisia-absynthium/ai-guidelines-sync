@@ -50,8 +50,12 @@ lifetimes, or gaining a responsibility its name doesn't cover.
 - Small functions, one abstraction level each; reading order follows the step-down rule.
 - **CQS** — a function either answers a question or mutates state, never both.
 - No side effects hiding behind innocent names.
-- **DRY, with the Metz caveat** — duplicated *knowledge* is a finding; duplicated *code*
-  is cheaper than the wrong abstraction.
+- **DRY — always, on knowledge** — every piece of knowledge has exactly one authoritative
+  representation; duplicated knowledge is a finding with no grace period. A wrong
+  abstraction is fixed by redesigning the abstraction — splitting fused meanings, moving
+  the boundary — never by inlining copies; "we'll duplicate for now" is not a resolution.
+  Conversely, code that merely looks alike while encoding different decisions is not
+  duplication: unify by meaning, never by textual resemblance.
 
 **Coupling laws**
 
