@@ -94,8 +94,10 @@ checkout_default_and_pull() {
 
     info "Pulling latest changes..."
     if ! git pull --ff-only; then
-        err "git pull --ff-only failed — resolve conflicts or divergence before running setup."
-        return 1
+        # Not fatal: the re-run-after-first-sync flow arrives with the first run's own
+        # uncommitted writes, and setup is idempotent on the current state.
+        warn "git pull --ff-only failed (dirty tree or divergence) — proceeding on the current state."
+        return 0
     fi
 }
 
@@ -600,21 +602,25 @@ merge_gate_hooks() {
 
     # File-tool half of gate integrity: harness-normalized deny rules (Edit rules cover
     # ALL file-editing tools — a Write() rule would not match file permission checks).
+    local deny_rules_added=false
     if ! grep -q 'design-gate/\*\*' "$settings_file" 2>/dev/null; then
         local tmp
         tmp=$(mktemp)
         if jq '.permissions = (.permissions // {}) | .permissions.deny = ((.permissions.deny // []) + ["Edit(.claude/hooks/synced/**)","Edit(.claude/design-gate/**)","Edit(.claude/settings.json)","Edit(.claude/settings.local.json)"] | unique)' \
             "$settings_file" > "$tmp"; then
             mv "$tmp" "$settings_file"
-            GATE_HOOKS_WIRED=true
+            deny_rules_added=true
         else
             rm -f "$tmp"
             warn ".claude/settings.json is not valid JSON — integrity deny rules NOT added"
         fi
     fi
 
+    [ "$deny_rules_added" = true ] && WRITTEN_FILES+=(".claude/settings.json (integrity deny rules added)")
     if [ "$GATE_HOOKS_WIRED" = true ]; then
         WRITTEN_FILES+=(".claude/settings.json (gate hooks wired)")
+    fi
+    if [ "$GATE_HOOKS_WIRED" = true ] || [ "$deny_rules_added" = true ]; then
         # The gate hooks make jq a permanent runtime dependency — never uninstall it.
         JQ_INSTALLED_BY_SCRIPT=false
     fi

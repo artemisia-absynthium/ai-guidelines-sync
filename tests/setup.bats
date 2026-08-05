@@ -723,3 +723,37 @@ gate_input() {
   [ -n "$src" ]
   [ "$src" = "$emb" ]
 }
+
+# ── pilot-discovered setup.sh bugs ────────────────────────────────────────────
+
+@test "merge_gate_hooks: deny-rules-only run does not claim gate hooks wired" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_gate_hooks
+  local claims_wired=false claims_deny=false
+  local f
+  for f in ${WRITTEN_FILES[@]+"${WRITTEN_FILES[@]}"}; do
+    [[ "$f" == *"gate hooks wired"* ]] && claims_wired=true
+    [[ "$f" == *"integrity deny rules added"* ]] && claims_deny=true
+  done
+  [ "$claims_wired" = false ]
+  [ "$claims_deny" = true ]
+}
+
+@test "checkout_default_and_pull: failed pull on a dirty tree proceeds instead of aborting" {
+  git init -q --bare "$TEST_DIR/origin.git"
+  git init -q "$TEST_DIR/work"
+  cd "$TEST_DIR/work"
+  echo a > tracked.txt
+  git add tracked.txt
+  git -c user.email=t@t -c user.name=t commit -q -m init
+  git branch -m main
+  git remote add origin "$TEST_DIR/origin.git"
+  git push -q -u origin main
+  git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+  git config pull.rebase true
+  echo dirty >> tracked.txt   # first-run-style unstaged change
+  run checkout_default_and_pull
+  [ "$status" -eq 0 ]
+}
