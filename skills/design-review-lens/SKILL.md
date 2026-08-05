@@ -57,6 +57,26 @@ lifetimes, or gaining a responsibility its name doesn't cover.
   Conversely, code that merely looks alike while encoding different decisions is not
   duplication: unify by meaning, never by textual resemblance.
 
+**Literature mapping**
+
+- For each non-trivial mechanism in the diff: what known problem is it an instance of, and
+  does it use that problem's known solution? A hand-rolled mechanism for a solved problem —
+  ad-hoc state machine, bespoke cache invalidation, invented synchronization, reinvented
+  parser — is a finding even when it works. Trivial mechanism is exempt; demanding a
+  pattern where a plain construct is proportionate is the inverse finding.
+
+**Complexity & performance**
+
+- For each loop, query, and allocation the diff adds: is there an asymptotically better
+  approach at realistic scale? The classic shapes: O(n²) scans where a set or index gives
+  O(n) / O(n log n), a result recomputed where one pass suffices, allocation inside hot
+  loops, N+1 query patterns, unbounded growth in caches and queues, a simpler algorithm
+  outright.
+- Every finding must state its scale argument: a quadratic pass over a provably-bounded
+  ten-element list is not a finding — flag only where the input can grow or the bound is
+  unstated. Where the cost claim is contentious, demand the measurement rather than
+  asserting one.
+
 **Coupling laws**
 
 - **Law of Demeter** — talk to friends, not strangers: `a.b().c()` chains reaching

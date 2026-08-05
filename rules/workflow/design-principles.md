@@ -42,6 +42,29 @@ types out of a growing class: owned concrete types with one implementation and n
 are the cure for a god class, not premature abstraction. When single-responsibility and
 "simplest shape" pull in opposite directions at the type level, single-responsibility wins.
 
+## Solutions are rooted in the literature
+
+Every design problem is treated as an instance of a known problem until shown otherwise:
+name the precedent — the design pattern, the algorithm, the data structure, the
+architectural style, the concurrency primitive — and take its known solution, adapted,
+stating what was adapted and why. A mechanism with no named precedent is presumed
+invented, and invention requires justification: what was searched, and why nothing fits.
+Novelty is a cost — an invented mechanism has no literature documenting its failure modes.
+
+Calibration: the demand is the *mapping*, not the ceremony. "This is a plain loop / a
+switch over a closed set — no precedent needed" is a valid mapping for trivial mechanism,
+and forcing a Visitor where a switch is proportionate is the inverse failure (the YAGNI
+guardrails govern the solution's weight). The rule bites on non-trivial mechanism — state
+machines, caches, schedulers, synchronization, retry/backoff, parsers, distributed or
+exactly-once semantics — anything with a named literature and documented failure modes.
+
+## Complexity is stated at plan time
+
+For every operation over a collection, stream, or query, the plan names the expected input
+scale and the time/space complexity of the chosen approach. "n is small and bounded" is a
+valid answer — but it must be *said*, with the bound, so the assumption is visible the day
+the bound changes.
+
 ## Design review lens
 
 The comprehensive review checklist (SOLID, Clean Architecture, GRASP, Clean Code,

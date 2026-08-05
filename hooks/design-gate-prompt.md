@@ -49,6 +49,19 @@ which applies regardless:
   framework behavior is a design finding: it must be designed away or carry empirical
   evidence.
 
+- **Literature mapping** — for each non-trivial mechanism: what known problem is it an
+  instance of, and does it use that problem's known solution? A hand-rolled mechanism for
+  a solved problem (ad-hoc state machine, bespoke cache invalidation, invented
+  synchronization, reinvented parser) is a finding even when it works. Trivial mechanism
+  is exempt; demanding a pattern where a plain construct is proportionate is the inverse
+  finding.
+- **Complexity & performance** — for each loop, query, and allocation the diff adds: is
+  there an asymptotically better approach at realistic scale (O(n²) scans where a set or
+  index suffices, recomputation where one pass suffices, allocation in hot loops, N+1
+  queries, unbounded cache/queue growth)? State the scale argument for every finding — a
+  quadratic pass over a provably-bounded tiny list is NOT a finding; where the cost claim
+  is contentious, demand a measurement rather than asserting one.
+
 Guardrails — do NOT flag: single-use protocols avoided in favor of concrete types
 (that's correct), YAGNI-compliant simplicity, concrete collaborator extraction from a
 large class (that's the cure, not over-engineering). A gate that cries wolf gets
