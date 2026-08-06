@@ -125,6 +125,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/xcode/packages.md` | SPM only — no CocoaPods or Carthage |
 | `rules/xcode/schemes.md` | GUI rewrites clobber hand-edited schemes; Run args leaking into the test host |
 | `rules/xcode/test-destinations.md` | Run every supported platform; resolve destinations from the selected Xcode's SDK |
+| `rules/xcode/test-verification.md` | Judge runs by executed-test count from the xcresult — exit codes and parallel-runner stdout both lie |
 | `rules/xcode/warnings.md` | Zero-warning policy |
 | `rules/workflow/build-discipline.md` | Build errors always in scope; human-intervention protocol |
 | `rules/workflow/code-style.md` | Comment discipline (why, never what), TECH-DEBT annotations |

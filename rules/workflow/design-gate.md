@@ -74,3 +74,8 @@ deny-hook, and `.claude/hooks/synced/` is sync-managed like `rules/synced/`. Cla
 edits, disables, or works around these hooks; a hook that seems broken is diagnosed and
 reported, not bypassed. For hard local immutability, hook files can be root-owned
 (documented in the README — optional, requires sudo once).
+
+The deny-hook matches the WHOLE Bash command text, not the touched files — a heredoc PR
+body or an echoed string that merely mentions a protected path is blocked too. Invoke the
+gate as a single-line command with nothing else in it, and keep the protected paths out of
+generated text (reference them indirectly, e.g. "the gate's last-review file").
