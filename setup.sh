@@ -43,35 +43,11 @@ cleanup_deps() {
 
 trap cleanup_deps EXIT
 
-# The default-branch resolution below is DERIVED — its single authoritative
-# representation is gate_default_branch in hooks/design-gate-common.sh. Refresh with
-# scripts/embed-common.sh; tests enforce byte-identity. (setup.sh must stay curl-runnable
-# as one self-contained file, so the knowledge is embedded at commit time.)
-# >>> embedded-from: hooks/design-gate-common.sh
-gate_default_branch() {
-    local b
-    b=$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null \
-        | sed 's|refs/remotes/origin/||') || true
-    if [ -n "${b:-}" ]; then
-        echo "$b"
-        return 0
-    fi
-    for b in develop main master; do
-        if git show-ref --verify --quiet "refs/remotes/origin/${b}"; then
-            echo "$b"
-            return 0
-        fi
-    done
-    return 1
-}
-# <<< embedded-from: hooks/design-gate-common.sh
-
 # ── Git helpers ───────────────────────────────────────────────────────────────
 checkout_default_and_pull() {
     local default_branch
-    default_branch=$(gate_default_branch) || true
-    # Setup-specific policy, not duplicated knowledge: with no resolvable default at all,
-    # assume main and let the checkout below fail loudly.
+    default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
+        | sed 's|refs/remotes/origin/||') || true
     : "${default_branch:=main}"
 
     # No commits yet — nothing to check out; proceed on current (empty) branch.
@@ -475,21 +451,12 @@ sync_upstream() {
     done < <(echo "$tree_json" | jq -r \
         '.tree[] | select(.type=="blob") | .path | select(startswith("skills/"))' \
         2>/dev/null || true)
-    if ! hooks_opted_out; then
-        while IFS= read -r p; do
-            [ -n "$p" ] && upstream_paths+=("$p")
-        done < <(echo "$tree_json" | jq -r \
-            '.tree[] | select(.type=="blob") | .path | select(startswith("hooks/"))' \
-            2>/dev/null || true)
-    fi
 
     local upstream_path dest_path skill_name content
     local -a synced_skill_names=()
     for upstream_path in "${upstream_paths[@]}"; do
         if [[ "$upstream_path" == rules/* ]]; then
             dest_path=".claude/rules/synced/${upstream_path#rules/}"
-        elif [[ "$upstream_path" == hooks/* ]]; then
-            dest_path=".claude/hooks/synced/${upstream_path#hooks/}"
         else
             dest_path=".claude/${upstream_path}"
         fi
@@ -500,17 +467,6 @@ sync_upstream() {
             continue
         }
         printf '%s' "$content" > "$dest_path"
-        if [[ "$dest_path" == .claude/hooks/synced/*.sh ]]; then
-            # An empty or truncated hook would exit 0 forever — a gate that silently
-            # stopped gating. Refuse to make anything without a shebang executable.
-            if head -1 "$dest_path" | grep -q '^#!'; then
-                chmod +x "$dest_path"
-            else
-                rm -f "$dest_path"
-                warn "fetched hook is empty or malformed, discarded: $upstream_path"
-                continue
-            fi
-        fi
         WRITTEN_FILES+=("$dest_path")
         if [[ "$upstream_path" == skills/* ]]; then
             skill_name=$(echo "$upstream_path" | cut -d/ -f2)
@@ -546,87 +502,6 @@ merge_guard_hook() {
     fi
 }
 
-# Wire the synced gate hooks into .claude/settings.json (idempotent per entry).
-# Commands reference ${CLAUDE_PROJECT_DIR} literally — expanded by Claude Code at hook time.
-# Each entry is wired only if its script actually landed (a failed upstream fetch must not
-# leave settings pointing at nothing — a missing hook command is a NON-blocking error, so
-# the gate would be silently inert). Opt-out: a "# hooks" line in rules-sync.txt.
-GATE_HOOKS_WIRED=false
-
-hooks_opted_out() {
-    [ -f ".claude/rules-sync.txt" ] || return 1
-    grep -qE '^[[:space:]]*#[[:space:]]*hooks[[:space:]]*$' ".claude/rules-sync.txt"
-}
-
-# merge_one_gate_entry <sentinel> <script-relpath> <jq-filter-with-$cmd>
-merge_one_gate_entry() {
-    local sentinel=$1 script=$2 filter=$3
-    local settings_file=".claude/settings.json"
-    # shellcheck disable=SC2016
-    local base='${CLAUDE_PROJECT_DIR}/.claude/hooks/synced'
-    local tmp
-
-    if [ ! -f ".claude/hooks/synced/${script}" ]; then
-        warn "hook not present, NOT wiring: ${script} (re-run setup after the first sync)"
-        return 0
-    fi
-    if grep -q "$sentinel" "$settings_file" 2>/dev/null; then
-        SKIPPED_FILES+=(".claude/settings.json (${sentinel} already present)")
-        return 0
-    fi
-    tmp=$(mktemp)
-    if jq --arg cmd "${base}/${script}" "$filter" "$settings_file" > "$tmp"; then
-        mv "$tmp" "$settings_file"
-        GATE_HOOKS_WIRED=true
-    else
-        rm -f "$tmp"
-        warn ".claude/settings.json is not valid JSON — ${sentinel} NOT wired"
-    fi
-    return 0
-}
-
-merge_gate_hooks() {
-    local settings_file=".claude/settings.json"
-    if hooks_opted_out; then
-        SKIPPED_FILES+=("gate hooks (opted out via '# hooks' in rules-sync.txt)")
-        return 0
-    fi
-    [ -f "$settings_file" ] || echo '{}' > "$settings_file"
-
-    merge_one_gate_entry "design-gate.sh" "design-gate.sh" \
-        '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{"matcher":"Bash","hooks":[{"type":"command","command":$cmd}]}])'
-    merge_one_gate_entry "protect-gate-integrity.sh" "protect-gate-integrity.sh" \
-        '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{"matcher":"Edit|Write|MultiEdit|Bash","hooks":[{"type":"command","command":$cmd}]}])'
-    merge_one_gate_entry "design-fit-reminder.sh" "design-fit-reminder.sh" \
-        '.hooks = (.hooks // {}) | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{"hooks":[{"type":"command","command":$cmd}]}])'
-
-    # File-tool half of gate integrity: harness-normalized deny rules (Edit rules cover
-    # ALL file-editing tools — a Write() rule would not match file permission checks).
-    local deny_rules_added=false
-    if ! grep -q 'design-gate/\*\*' "$settings_file" 2>/dev/null; then
-        local tmp
-        tmp=$(mktemp)
-        if jq '.permissions = (.permissions // {}) | .permissions.deny = ((.permissions.deny // []) + ["Edit(.claude/hooks/synced/**)","Edit(.claude/design-gate/**)","Edit(.claude/settings.json)","Edit(.claude/settings.local.json)"] | unique)' \
-            "$settings_file" > "$tmp"; then
-            mv "$tmp" "$settings_file"
-            deny_rules_added=true
-        else
-            rm -f "$tmp"
-            warn ".claude/settings.json is not valid JSON — integrity deny rules NOT added"
-        fi
-    fi
-
-    [ "$deny_rules_added" = true ] && WRITTEN_FILES+=(".claude/settings.json (integrity deny rules added)")
-    if [ "$GATE_HOOKS_WIRED" = true ]; then
-        WRITTEN_FILES+=(".claude/settings.json (gate hooks wired)")
-    fi
-    if [ "$GATE_HOOKS_WIRED" = true ] || [ "$deny_rules_added" = true ]; then
-        # The gate hooks make jq a permanent runtime dependency — never uninstall it.
-        JQ_INSTALLED_BY_SCRIPT=false
-    fi
-    return 0
-}
-
 report_results() {
     echo ""
     echo -e "${BOLD}${GREEN}Done — $(pwd)${NC}"
@@ -645,18 +520,12 @@ report_results() {
     echo "     See: https://github.com/artemisia-absynthium/ai-guidelines-sync#adding-a-deploy-key"
     echo "  2. Commit and push all new/modified files"
     echo "  3. Actions → Sync Claude Rules and Skills → Run workflow (to verify the action runs)"
-    echo "  4. Optional hardening — make the gate hooks locally immutable (root-owned):"
-    echo "     sudo chown root:wheel .claude .claude/hooks .claude/hooks/synced .claude/hooks/synced/*"
-    echo "     sudo chmod go-w .claude .claude/hooks .claude/hooks/synced .claude/hooks/synced/*"
-    echo "     (parents too — renaming a directory needs write permission on its PARENT)"
-    echo "     Trade-off: hook updates from sync then require 'sudo git checkout -- .claude/hooks/synced'"
 }
 
 setup_project() {
     header "Setting up: $(pwd)"
     WRITTEN_FILES=()
     SKIPPED_FILES=()
-    GATE_HOOKS_WIRED=false
 
     checkout_default_and_pull || return 1
 
@@ -676,7 +545,6 @@ setup_project() {
     write_workflow_file
     sync_upstream ${active_cats[@]+"${active_cats[@]}"}
     merge_guard_hook
-    merge_gate_hooks
     report_results
 }
 
@@ -722,16 +590,6 @@ multi_repo_mode() {
             cd "$start_dir/$repo"
             setup_project
         ) || FAILED_REPOS+=("$repo")
-    done
-
-    # Gate hooks make jq a permanent runtime dependency; the per-repo flag is lost in the
-    # subshell, so decide retention here in the parent before the EXIT trap runs.
-    local wired_repo
-    for wired_repo in ${SELECTED_REPOS[@]+"${SELECTED_REPOS[@]}"}; do
-        if grep -q "design-gate.sh" "${wired_repo}/.claude/settings.json" 2>/dev/null; then
-            JQ_INSTALLED_BY_SCRIPT=false
-            break
-        fi
     done
 
     if [ "${#FAILED_REPOS[@]}" -gt 0 ]; then

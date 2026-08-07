@@ -218,38 +218,6 @@ runs:
         printf '%s\n' "${new_skills[@]+"${new_skills[@]}"}" | sort > "$manifest"
         echo "Synced skills: ${new_skills[*]+"${new_skills[*]}"}"
 
-    - name: Sync hooks
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        hooks_src=".tmp-claude-rules/hooks"
-        hooks_dst=".claude/hooks/synced"
-
-        if [ ! -d "$hooks_src" ]; then
-          echo "No hooks directory in upstream — skipping hook sync"
-          exit 0
-        fi
-        if [ -f ".claude/rules-sync.txt" ] \
-            && grep -qE '^[[:space:]]*#[[:space:]]*hooks[[:space:]]*$' ".claude/rules-sync.txt"; then
-          echo "Hooks opted out via '# hooks' in rules-sync.txt — skipping hook sync"
-          exit 0
-        fi
-
-        # An empty or truncated hook would exit 0 forever — refuse anything without a shebang.
-        for f in "$hooks_src"/*.sh; do
-          [ -f "$f" ] || continue
-          if ! head -1 "$f" | grep -q '^#!'; then
-            echo "Malformed hook in upstream (no shebang): $f — aborting hook sync" >&2
-            exit 1
-          fi
-        done
-
-        mkdir -p "$hooks_dst"
-        rsync -a --delete "$hooks_src/" "$hooks_dst/"
-        find "$hooks_dst" -name "*.sh" -exec chmod +x {} +
-        echo "Synced hooks: $(find "$hooks_dst" -type f | wc -l | tr -d ' ') files"
-
     - name: Clean up upstream checkout
       shell: bash
       run: rm -rf .tmp-claude-rules
@@ -262,5 +230,5 @@ runs:
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add .claude/
         git diff --staged --quiet \
-          || git commit -m "chore: sync Claude Code rules, skills, and hooks"
+          || git commit -m "chore: sync Claude Code rules and skills"
         git push
