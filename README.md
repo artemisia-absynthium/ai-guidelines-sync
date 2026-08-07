@@ -74,6 +74,29 @@ When sync logic changes, only this repo is updated — subscriber workflow files
 5. Syncs skills using a manifest (`.claude/skills/.synced-manifest`) to safely remove skills deleted upstream without touching local project skills
 6. Commits and pushes via the deploy key
 
+### Ownership & deletion contract
+
+The sync is a reconciliation loop, not a script: every run must converge any subscriber
+state (including a half-failed previous run) to the table below. Each managed path has an
+explicit owner, and the owner determines what an upstream deletion does to subscribers.
+**No path may be added to the sync without adding its row here first** — a path without a
+deletion story is a distribution mechanism without an ownership model, and the first
+revert is when you find out.
+
+| Managed path (subscriber) | Owner | What a sync does | When upstream deletes it |
+|---|---|---|---|
+| `.claude/rules/synced/<cat>/` | Upstream | `rsync --delete` — the directory becomes exactly the upstream category | File (or whole category) disappears from every subscriber on its next sync |
+| `.claude/skills/<name>/` | Mixed — upstream and local skills share the directory | rsync without `--delete`; the manifest records which names are upstream-owned | Deleted only if the manifest lists it; a local skill with the same name created *after* the manifest dropped it is invisible to the sync forever |
+| `.claude/rules-sync.txt` | Subscriber (upstream appends detected categories) | Merge: auto-detected categories appended, commented lines respected as exclusions | n/a — never deleted by the sync |
+| Hooks | — | No hook step exists at present; if one returns, its contract must be stated here first (previous incarnation: skip-when-source-absent, `rsync --delete` when present) | — |
+
+Consequence worth knowing when working *with* the grain of this contract: removing a skill
+upstream and re-creating it locally in a subscriber (after one sync run) permanently hands
+that skill to the subscriber — the manifest no longer tracks the name, so later syncs never
+touch it. This is the sanctioned way to fork a skill for a local pilot; it reverses
+automatically when the skill is re-added upstream and a sync re-adopts the name into the
+manifest.
+
 ---
 
 ## Selective sync — `.claude/rules-sync.txt`
