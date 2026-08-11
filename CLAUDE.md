@@ -45,7 +45,7 @@ The skill layer is kept for tasks that require reasoning:
 
 Source of truth — never edit inside a subscriber's `.claude/rules/synced/`.
 
-**Available categories**: `swift`, `ios`, `mac`, `visionos`, `xcode`, `android`, `web`, `workflow`  
+**Available categories**: `swift`, `ios`, `mac`, `visionos`, `xcode`, `android`, `web`, `workflow`, `database`  
 **Future (detection only, no rules yet)**: `python`, `node`
 
 The `workflow` category is always synced to every subscriber regardless of `rules-sync.txt`.

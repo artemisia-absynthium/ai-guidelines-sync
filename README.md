@@ -113,7 +113,7 @@ xcode
 # mac   ← explicitly excluded; auto-detection won't add it back
 ```
 
-**Available categories**: `swift`, `ios`, `mac`, `visionos`, `xcode`, `android`, `web`
+**Available categories**: `swift`, `ios`, `mac`, `visionos`, `xcode`, `android`, `web`, `database`
 
 The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 
@@ -142,6 +142,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/android/room.md` | Flow from DAOs, KSP, explicit migrations, schema export |
 | `rules/android/testing.md` | JUnit 4, Robolectric, MockK, Turbine for Flow assertions |
 | `rules/web/playwright.md` | Playwright test execution vs visual verification |
+| `rules/database/partial-unique-indexes.md` | Partial unique indexes — writes that transition rows into the WHERE-domain must absorb occupants in-transaction |
 | `rules/xcode/mcp-tools.md` | Xcode MCP tools for file ops, build, test, preview, code intelligence |
 | `rules/xcode/packages.md` | SPM only — no CocoaPods or Carthage |
 | `rules/xcode/schemes.md` | GUI rewrites clobber hand-edited schemes; Run args leaking into the test host |
