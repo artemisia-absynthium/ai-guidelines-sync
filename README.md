@@ -148,6 +148,8 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/xcode/schemes.md` | GUI rewrites clobber hand-edited schemes; Run args leaking into the test host |
 | `rules/xcode/test-destinations.md` | Run every supported platform; resolve destinations from the selected Xcode's SDK |
 | `rules/xcode/test-verification.md` | Judge runs by executed-test count from the xcresult — exit codes and parallel-runner stdout both lie |
+| `rules/xcode/ui-test-data-isolation.md` | UI-test launch flags redirect to ephemeral storage, never wipe in place — macOS tests run in the real container |
+| `rules/xcode/ui-test-hierarchy-portability.md` | Query by identifier at any element type; branch on the hierarchy, not the platform — element trees differ per platform |
 | `rules/xcode/warnings.md` | Zero-warning policy |
 | `rules/workflow/contributing.md` | Cross-project rule contribution — invoke `lift-to-shared-rules` |
 | `rules/workflow/synced-rules.md` | Synced-directory layout — where to put local rules, how to opt out |
