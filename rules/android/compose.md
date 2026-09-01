@@ -60,11 +60,4 @@ This applies to all Composable invocations, regardless of total line length.
 
 ## UI state coverage order
 
-When building a screen that loads data or performs async work, implement states in this order:
-
-1. **Error state** — what the user sees when the operation fails
-2. **Empty state** — what the user sees when the result set is empty
-3. **Loading state** — skeleton or progress indicator
-4. **Success / happy path** — the populated content
-
-Do not ship a screen where any of the first three states render nothing or crash. An unhandled `else` branch in a `when` on a sealed interface is a compile error waiting to happen — always handle every branch explicitly.
+The cross-stack rule (`rules/workflow/ui-state.md`) governs: error and empty states are implemented before the happy path, and a screen is not shippable without them. Compose-specific addition: never leave an unhandled `else` branch in a `when` on a sealed state interface — handle every branch explicitly so a new state is a compile error, not a blank screen.
