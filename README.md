@@ -125,8 +125,8 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 |------|--------|
 | `rules/swift/analytics.md` | Firebase Analytics screen view tracking |
 | `rules/swift/assets.md` | `ImageResource` in SwiftUI — type-safe, non-optional asset loading |
-| `rules/swift/code-style.md` | Logger, file headers, import order, naming, SwiftLint |
-| `rules/swift/concurrency.md` | `@MainActor`, `@Observable`, async patterns, Task discipline |
+| `rules/swift/code-style.md` | Logger extension pattern, file headers, import order, naming, MARK member ordering, the `URL(string:)!` literal exception |
+| `rules/swift/concurrency.md` | `@Observable @MainActor` mandate, Combine only with justification, capture lists, no `NotificationCenter`, isolation discipline |
 | `rules/swift/coredata.md` | `NSManagedObjectContext` queue confinement — every access inside `perform` |
 | `rules/swift/dates.md` | `FormatStyle` over `DateFormatter`, `en_US_POSIX` for machine formats |
 | `rules/swift/security.md` | Archive extraction — containment-guarded APIs, zip-slip prevention |
@@ -143,7 +143,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/android/testing.md` | JUnit 4, Robolectric, MockK, Turbine for Flow assertions |
 | `rules/web/playwright.md` | Playwright test execution vs visual verification |
 | `rules/database/partial-unique-indexes.md` | Partial unique indexes — writes that transition rows into the WHERE-domain must absorb occupants in-transaction |
-| `rules/xcode/mcp-tools.md` | Xcode MCP tools for file ops, build, test, preview, code intelligence |
+| `rules/xcode/mcp-tools.md` | Where Xcode MCP is required (legacy-group file ops, diagnostics over `swift-lsp`) and its gotchas (tab id, staging, active destination) |
 | `rules/xcode/packages.md` | SPM only — no CocoaPods or Carthage |
 | `rules/xcode/schemes.md` | GUI rewrites clobber hand-edited schemes; Run args leaking into the test host |
 | `rules/xcode/test-destinations.md` | Run every supported platform; resolve destinations from the selected Xcode's SDK |
@@ -168,7 +168,8 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | Skill | What it does |
 |-------|-------------|
 | `design-review-lens` | Full design-review checklist (SOLID, Clean Architecture, GRASP, Clean Code, coupling laws, guardrails) for reviewing a diff or branch |
-| `lift-to-shared-rules` | Generalizes a pattern found in a project and proposes it upstream via commit (owner) or PR (contributor) |
+| `lift-to-shared-rules` | Generalizes a pattern found in a project and proposes it upstream — commits locally, pushes or opens the PR only on an explicit go |
+| `swift-concurrency-review` | Dedicated Swift concurrency review pass — reentrancy, continuations, cancellation, ordering, `@unchecked Sendable` |
 | `planning-discipline` | Type-level design, invariant-first planning, named precedents, and complexity budgets — invoked at plan time |
 
 After the first sync workflow run, skills are committed to `.claude/skills/<name>/` in each subscriber repo — available to all teammates automatically.
