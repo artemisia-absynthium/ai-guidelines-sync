@@ -155,6 +155,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/workflow/code-style.md` | Pre-existing violations — `TECH-DEBT` annotation, never mirrored |
 | `rules/workflow/contributing.md` | Cross-project rule contribution — invoke `lift-to-shared-rules` |
 | `rules/workflow/docs-sync.md` | Mandatory `Docs:` report line with mechanical staleness triggers |
+| `rules/workflow/git-pull-first.md` | On shared branches only: fetch + fast-forward before the first edit when the last fetch is >1 h old |
 | `rules/workflow/plan-execution.md` | Durable plan files, divergence re-plan trigger, wire contracts, first vertical slice |
 | `rules/workflow/synced-rules.md` | Synced-directory layout — where to put local rules, how to opt out |
 | `rules/workflow/tool-fallback-discipline.md` | Unavailable ≠ broken — an erroring tool is diagnosed, never silently bypassed |
