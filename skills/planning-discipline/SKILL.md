@@ -53,12 +53,39 @@ forcing a Visitor where a switch is proportionate is the inverse failure. The ru
 non-trivial mechanism — state machines, caches, schedulers, synchronization, retry/backoff,
 parsers, distributed or exactly-once semantics.
 
+**In-house literature first.** An in-house package is an SDK: the documentation-retrieval
+step that already covers platform and third-party APIs covers it identically. Each package
+carries its own documentation — its `CLAUDE.md`, `README.md`, and source tree as the
+component index — and reading it is part of planning, not an optional extra; the consuming
+project's docs will not (and need not) point there. Before designing ANY mechanism (UI
+component, paging behaviour, cache, formatter, …), read the in-house packages' docs and grep
+them by capability. A package consumed as a remote dependency is read at its repository or in
+a throwaway clone outside the project — never from the build system's checkout (DerivedData
+`SourcePackages/checkouts`, `.build/checkouts/`), a disposable working copy that has already
+produced a refuted review finding. "Nothing in-house fits" is valid only with the consulted
+packages listed. Why: a paging component in a module the edited file already imported, named
+in that package's own CLAUDE.md, went unfound while two bespoke paging mechanisms were built
+and review-cycled for ~4 rounds — the platform literature had been searched, the in-house
+SDK's documentation never opened.
+
 ## Complexity is stated at plan time
 
 For every operation over a collection, stream, or query, the plan names the expected input
 scale and the time/space complexity of the chosen approach. "n is small and bounded" is a
 valid answer — but it must be *said*, with the bound, so the assumption is visible the day
 the bound changes.
+
+## Shipped vs unshipped — compat ceremony only for fielded contracts
+
+Before proposing any backwards-compatibility or migration-safety machinery, determine whether
+the contract is **fielded** — in the hands of clients you cannot update — or still in active
+development. Schema-version bumps, "requires app update" gates, decode-with-default tolerance,
+and legacy-format migration paths exist to protect fielded clients. For an unshipped shape, a
+contract change is a clean rewrite of every site at once — producer, data, and consumer
+together — with no version gate; adding one is ceremony. Judge per contract, not per project:
+a multi-consumer library path serving deployed consumers keeps its compat path even while the
+app around it is pre-release, and a cross-process wire format is a real contract before it
+ships.
 
 ## Invariant-first (stateful code)
 
