@@ -1,3 +1,7 @@
+---
+name: lift-to-shared-rules
+description: Persist a generalizable coding pattern, constraint, or convention into the shared rules repo — pick the category, write and anonymize the rule, check coherence against every existing rule, show the diff with a filled-in acceptance checklist, then commit+push (owner) or fork+PR (contributor). Invoke whenever a pattern emerges that should apply across all projects, not just the current one.
+---
 # lift-to-shared-rules
 
 Persist a generalizable coding pattern into the shared rules repo, verify coherence across all existing rules, show the diff with a filled-in acceptance checklist, and propose a commit+push (owner) or fork+PR (contributor).
