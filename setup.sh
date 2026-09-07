@@ -483,21 +483,41 @@ merge_guard_hook() {
     local settings_file=".claude/settings.json"
     local guard_cmd
     # shellcheck disable=SC2016
-    guard_cmd='file=$(jq -r '"'"'.file_path // empty'"'"'); case "$file" in *".claude/rules/synced"*) echo "ERROR: .claude/rules/synced/ is sync-managed — edits are overwritten on the next sync. Add rules to .claude/rules/ instead." >&2; exit 2;; esac'
+    guard_cmd='file=$(jq -r '"'"'.tool_input.file_path // empty'"'"'); case "$file" in *".claude/rules/synced"*) echo "ERROR: .claude/rules/synced/ is sync-managed — edits are overwritten on the next sync. Add rules to .claude/rules/ instead." >&2; exit 2;; esac'
     local guard_entry
     guard_entry=$(jq -n --arg cmd "$guard_cmd" \
         '{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":$cmd}]}')
 
     [ -f "$settings_file" ] || echo '{}' > "$settings_file"
 
-    if grep -q "rules/synced" "$settings_file" 2>/dev/null; then
+    # "Already present" means the exact current command. A guard that merely mentions
+    # rules/synced is an outdated variant and is replaced: guards written before the
+    # tool_input fix read .file_path, which the PreToolUse payload never carries, so they
+    # never fired — a re-run of this script must repair them, not skip them.
+    if jq -e --arg cmd "$guard_cmd" \
+        '[.hooks.PreToolUse // [] | .[] | (.hooks // [])[] | (.command // "")] | any(. == $cmd)' \
+        "$settings_file" >/dev/null 2>&1; then
         SKIPPED_FILES+=(".claude/settings.json (guard hook already present)")
+        return
+    fi
+
+    local outdated
+    outdated=$(jq '[.hooks.PreToolUse // [] | .[]
+        | select((.hooks // []) | map((.command // "") | test("rules/synced")) | any)] | length' \
+        "$settings_file")
+
+    local tmp
+    tmp=$(mktemp)
+    jq --argjson entry "$guard_entry" '
+        .hooks = (.hooks // {})
+        | .hooks.PreToolUse = ([.hooks.PreToolUse // [] | .[]
+            | select(((.hooks // []) | map((.command // "") | test("rules/synced")) | any) | not)]
+            + [$entry])' \
+        "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
+
+    if [ "$outdated" -gt 0 ]; then
+        WRITTEN_FILES+=(".claude/settings.json (guard hook updated)")
     else
-        local tmp
-        tmp=$(mktemp)
-        jq --argjson entry "$guard_entry" \
-            '.hooks = (.hooks // {}) | .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [$entry])' \
-            "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
         WRITTEN_FILES+=(".claude/settings.json (guard hook added)")
     fi
 }

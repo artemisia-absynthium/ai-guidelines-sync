@@ -191,6 +191,31 @@ teardown() {
   [ "$count_after_first" = "$count_after_second" ]
 }
 
+@test "merge_guard_hook: replaces an outdated guard instead of skipping it" {
+  mkdir -p "$TEST_DIR/.claude"
+  cat > "$TEST_DIR/.claude/settings.json" <<'EOF'
+{"hooks":{"PreToolUse":[{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":"file=$(jq -r '.file_path // empty'); case \"$file\" in *\".claude/rules/synced\"*) exit 2;; esac"}]}]}}
+EOF
+  cd "$TEST_DIR"
+  merge_guard_hook
+  count=$(jq '.hooks.PreToolUse | length' "$TEST_DIR/.claude/settings.json")
+  [ "$count" = "1" ]
+  cmd=$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$TEST_DIR/.claude/settings.json")
+  [[ "$cmd" == *".tool_input.file_path"* ]]
+}
+
+@test "guard hook: blocks an edit under rules/synced given the real PreToolUse payload" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_guard_hook
+  cmd=$(jq -r '.hooks.PreToolUse[0].hooks[0].command' .claude/settings.json)
+  run bash -c "$cmd" <<< '{"tool_name":"Edit","tool_input":{"file_path":"/r/.claude/rules/synced/x.md"}}'
+  [ "$status" -eq 2 ]
+  run bash -c "$cmd" <<< '{"tool_name":"Edit","tool_input":{"file_path":"/r/.claude/rules/local.md"}}'
+  [ "$status" -eq 0 ]
+}
+
 # ── read_active_categories ────────────────────────────────────────────────────
 # read_active_categories prints to stdout; capture with $() or process substitution.
 
