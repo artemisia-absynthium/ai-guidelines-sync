@@ -12,7 +12,7 @@ A plan for any multi-step task must live in a durable file (e.g. `~/.claude/plan
 
 ## Divergence is a re-plan trigger
 
-When execution diverges from the approved plan — an assumption breaks, the real system differs from the spec, a step surfaces unknowns — STOP and update the plan before continuing. Off-plan fixes must never silently accumulate; one divergence is a re-planning checkpoint, not a patch. A trail of reactive "fix X" commits with no plan update is the signature of this rule being violated.
+Any unplanned event (see `terminology.md`) is a divergence. The next output is a diagnosis and a *proposed* change, never the change itself. The change must be **path-independent**: plan and code end up as they would have been designed had the requirement been known from the start — the simplest structure that satisfies everything now known, with the change placed where the design says it belongs, not where it is cheapest to bolt on. If the plan absorbs it that way, amend it in place; if not, remake the plan with the change designed in. A patch a reader could identify as "added later" — extra branches where a model should have changed, a step bolted beside the one it contradicts — is a Frankenstein, and every later step inherits the seam. Off-plan fixes must never silently accumulate; a trail of reactive "fix X" commits with no plan update is the signature of this rule being violated.
 
 ## Specify wire contracts before approving the plan
 
