@@ -1,7 +1,5 @@
 ---
 description: Planning and execution discipline for non-trivial, multi-step work
-paths:
-  - "**/*"
 ---
 
 # Planning & Execution Discipline

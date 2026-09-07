@@ -1,7 +1,5 @@
 ---
 description: Per-task charter — the concerns that must stay true, held as an unscoped gitignored rule so they survive compaction and delegation
-paths:
-  - "**/*"
 ---
 
 # Charter — what must stay true for the task

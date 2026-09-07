@@ -1,7 +1,5 @@
 ---
 description: Definitions other rules cite — fix vs workaround, the authority order of sources, done, unplanned event
-paths:
-  - "**/*"
 ---
 
 # Terminology

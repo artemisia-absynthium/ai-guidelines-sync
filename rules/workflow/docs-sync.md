@@ -1,7 +1,5 @@
 ---
 description: READMEs and consumer-facing docs are part of the Definition of Done — a mandatory report line with mechanical staleness triggers
-paths:
-  - "**/*"
 ---
 
 # Docs Sync — README Currency Is Part of Done

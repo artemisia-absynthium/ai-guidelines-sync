@@ -1,7 +1,5 @@
 ---
 description: A passing build is part of Definition of Done — blockers requiring human action are flagged, never worked around
-paths:
-  - "**/*"
 ---
 
 # Build Discipline
