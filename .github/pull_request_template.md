@@ -14,7 +14,7 @@ Filled by the `lift-to-shared-rules` skill based on its analysis of the existing
 
 Attested by the contributor (human or Claude):
 
-- [ ] Frontmatter has a `description` (one line) and `globs` matching the category's file types
+- [ ] Frontmatter matches the category: `paths:` scoped to the category's file types for stack categories; a one-line `description:` and no `paths:` for `workflow/` (unscoped, so it survives compaction)
 - [ ] Applies to any project in this category — no internal file paths, type names, or org-specific references
 - [ ] Not a restatement of Apple/framework documentation — captures a non-obvious constraint, gotcha, or decision
 - [ ] Non-obvious constraints include a short rationale (the *why*, not just the *what*)
