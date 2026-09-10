@@ -46,8 +46,20 @@ trap cleanup_deps EXIT
 # ── Git helpers ───────────────────────────────────────────────────────────────
 checkout_default_and_pull() {
     local default_branch
-    default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
-        | sed 's|refs/remotes/origin/||') || true
+    # Ask the remote for its current default branch: the clone-time origin/HEAD goes stale
+    # when the default changes on the remote, and `git remote set-head --auto` refuses to
+    # update it when the new default was never fetched. Offline, keep the cached value.
+    default_branch=$(git ls-remote --symref origin HEAD 2>/dev/null \
+        | sed -n 's|^ref: refs/heads/\([^[:space:]]*\)[[:space:]]*HEAD$|\1|p') || true
+    if [ -n "$default_branch" ]; then
+        # Make the branch checkout-able even when it never existed at clone time, and
+        # repair the cached origin/HEAD for tools that read it.
+        git fetch --quiet origin >/dev/null 2>&1 || true
+        git remote set-head origin "$default_branch" >/dev/null 2>&1 || true
+    else
+        default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
+            | sed 's|refs/remotes/origin/||') || true
+    fi
     : "${default_branch:=main}"
 
     # No commits yet — nothing to check out; proceed on current (empty) branch.
@@ -461,12 +473,17 @@ sync_upstream() {
             dest_path=".claude/${upstream_path}"
         fi
         mkdir -p "$(dirname "$dest_path")"
-        content=$(curl -fsSL "${UPSTREAM_API}/contents/${upstream_path}" 2>/dev/null \
-            | jq -r '.content' 2>/dev/null | base64 -d 2>/dev/null) || {
+        # Stream straight into the file: capturing the body in a variable would strip
+        # its trailing newline, and every file the Action later rsyncs would then show
+        # a one-line diff against what setup wrote. Write to a temp name so a failed
+        # fetch never leaves a truncated file behind.
+        if ! curl -fsSL "${UPSTREAM_API}/contents/${upstream_path}" 2>/dev/null \
+            | jq -r '.content' 2>/dev/null | base64 -d > "${dest_path}.tmp" 2>/dev/null; then
+            rm -f "${dest_path}.tmp"
             warn "Failed to fetch: $upstream_path"
             continue
-        }
-        printf '%s' "$content" > "$dest_path"
+        fi
+        mv "${dest_path}.tmp" "$dest_path"
         WRITTEN_FILES+=("$dest_path")
         if [[ "$upstream_path" == skills/* ]]; then
             skill_name=$(echo "$upstream_path" | cut -d/ -f2)

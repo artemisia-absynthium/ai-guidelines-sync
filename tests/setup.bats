@@ -418,3 +418,71 @@ EOF
   run checkout_default_and_pull
   [ "$status" -eq 0 ]
 }
+
+@test "checkout_default_and_pull: follows a default branch created on the remote after the clone" {
+  git init -q --bare "$TEST_DIR/origin.git"
+  git init -q "$TEST_DIR/seed"
+  cd "$TEST_DIR/seed"
+  echo a > tracked.txt
+  git add tracked.txt
+  git -c user.email=t@t -c user.name=t commit -q -m init
+  git branch -m main
+  git remote add origin "$TEST_DIR/origin.git"
+  git push -q origin main
+  git clone -q "$TEST_DIR/origin.git" "$TEST_DIR/work"                  # origin/HEAD -> main, no develop yet
+  git branch develop
+  git push -q origin develop
+  git -C "$TEST_DIR/origin.git" symbolic-ref HEAD refs/heads/develop   # default moved after the clone
+  cd "$TEST_DIR/work"
+  run checkout_default_and_pull
+  [ "$status" -eq 0 ]
+  [ "$(git branch --show-current)" = "develop" ]
+  [ "$(git symbolic-ref refs/remotes/origin/HEAD)" = "refs/remotes/origin/develop" ]
+}
+
+@test "checkout_default_and_pull: keeps the cached origin/HEAD when the remote is unreachable" {
+  git init -q "$TEST_DIR/work"
+  cd "$TEST_DIR/work"
+  echo a > tracked.txt
+  git add tracked.txt
+  git -c user.email=t@t -c user.name=t commit -q -m init
+  git branch -m develop
+  git remote add origin "$TEST_DIR/missing.git"
+  git update-ref refs/remotes/origin/develop HEAD
+  git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/develop
+  git checkout -q -b other
+  run checkout_default_and_pull
+  [ "$status" -eq 0 ]
+  [ "$(git branch --show-current)" = "develop" ]
+}
+
+# ── sync_upstream ─────────────────────────────────────────────────────────────
+
+@test "sync_upstream: preserves the trailing newline of upstream files" {
+  cd "$TEST_DIR"
+  curl() {
+    local url="${*: -1}"
+    case "$url" in
+      */git/trees/*) echo '{"tree":[{"type":"blob","path":"rules/workflow/a.md"}]}' ;;
+      */contents/*)  printf '{"content":"%s"}\n' "$(printf 'body\n' | base64)" ;;
+    esac
+  }
+  sync_upstream workflow
+  [ -f ".claude/rules/synced/workflow/a.md" ]
+  [ ! -f ".claude/rules/synced/workflow/a.md.tmp" ]
+  [ "$(od -An -c .claude/rules/synced/workflow/a.md | tr -d ' ')" = 'body\n' ]
+}
+
+@test "sync_upstream: a failed fetch leaves no file behind" {
+  cd "$TEST_DIR"
+  curl() {
+    local url="${*: -1}"
+    case "$url" in
+      */git/trees/*) echo '{"tree":[{"type":"blob","path":"rules/workflow/a.md"}]}' ;;
+      */contents/*)  return 22 ;;
+    esac
+  }
+  sync_upstream workflow
+  [ ! -e ".claude/rules/synced/workflow/a.md" ]
+  [ ! -e ".claude/rules/synced/workflow/a.md.tmp" ]
+}
