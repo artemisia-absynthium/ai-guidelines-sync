@@ -458,31 +458,291 @@ EOF
 
 # ── sync_upstream ─────────────────────────────────────────────────────────────
 
-@test "sync_upstream: preserves the trailing newline of upstream files" {
-  cd "$TEST_DIR"
-  curl() {
-    local url="${*: -1}"
-    case "$url" in
-      */git/trees/*) echo '{"tree":[{"type":"blob","path":"rules/workflow/a.md"}]}' ;;
-      */contents/*)  printf '{"content":"%s"}\n' "$(printf 'body\n' | base64)" ;;
-    esac
-  }
-  sync_upstream workflow
-  [ -f ".claude/rules/synced/workflow/a.md" ]
-  [ ! -f ".claude/rules/synced/workflow/a.md.tmp" ]
-  [ "$(od -An -c .claude/rules/synced/workflow/a.md | tr -d ' ')" = 'body\n' ]
+# Build a fake upstream archive and make curl serve it. Layout mirrors the real repo
+# (top-level "<repo>-<sha>/" component, rules/<cat>/, skills/<name>/).
+make_upstream_archive() {
+  local root="$TEST_DIR/upstream/ai-guidelines-sync-abc123"
+  mkdir -p "$root/rules/workflow" "$root/rules/swift" "$root/skills/shared-skill"
+  printf 'body\n' > "$root/rules/workflow/a.md"
+  printf 'swift rule\n' > "$root/rules/swift/s.md"
+  printf 'skill\n' > "$root/skills/shared-skill/SKILL.md"
+  mkdir -p "$root/skills/shared-skill/sub"
+  printf 'sub\n' > "$root/skills/shared-skill/sub/a.md"
+  mkdir -p "$root/keep" "$root/rules/bad name"          # bait for the traversal test
+  printf 'upstream\n' > "$root/keep/k.md"
+  printf 'x\n' > "$root/rules/bad name/b.md"
+  tar -czf "$TEST_DIR/upstream.tgz" -C "$TEST_DIR/upstream" ai-guidelines-sync-abc123
+  curl() { cat "$TEST_DIR/upstream.tgz"; }
+  stub_mktemp
 }
 
-@test "sync_upstream: a failed fetch leaves no file behind" {
+# Make the extraction dir a known path so tests can assert it is gone afterwards.
+stub_mktemp() {
+  mktemp() { mkdir -p "$TEST_DIR/extract"; echo "$TEST_DIR/extract"; }
+}
+
+@test "sync_upstream: copies upstream files byte-identical, trailing newline included" {
+  make_upstream_archive
   cd "$TEST_DIR"
-  curl() {
-    local url="${*: -1}"
-    case "$url" in
-      */git/trees/*) echo '{"tree":[{"type":"blob","path":"rules/workflow/a.md"}]}' ;;
-      */contents/*)  return 22 ;;
-    esac
-  }
   sync_upstream workflow
-  [ ! -e ".claude/rules/synced/workflow/a.md" ]
-  [ ! -e ".claude/rules/synced/workflow/a.md.tmp" ]
+  cmp -s ".claude/rules/synced/workflow/a.md" "$TEST_DIR/upstream/ai-guidelines-sync-abc123/rules/workflow/a.md"
+  [ "$(od -An -c .claude/rules/synced/workflow/a.md | tr -d ' ')" = 'body\n' ]
+  [ ! -e "$TEST_DIR/extract" ]
+  [ ! -e ".claude/rules/synced/workflow.new" ]
+}
+
+@test "sync_upstream: only active categories are written" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  sync_upstream workflow
+  [ -f ".claude/rules/synced/workflow/a.md" ]
+  [ ! -e ".claude/rules/synced/swift" ]
+}
+
+@test "sync_upstream: an active category becomes exactly the upstream category" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  mkdir -p .claude/rules/synced/workflow
+  echo stale > .claude/rules/synced/workflow/removed-upstream.md
+  sync_upstream workflow
+  [ -f ".claude/rules/synced/workflow/a.md" ]
+  [ ! -e ".claude/rules/synced/workflow/removed-upstream.md" ]
+}
+
+@test "sync_upstream: skills are overlaid, local skills kept, manifest lists upstream names" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  mkdir -p .claude/skills/local-skill
+  echo mine > .claude/skills/local-skill/SKILL.md
+  sync_upstream workflow
+  [ -f ".claude/skills/shared-skill/SKILL.md" ]
+  [ "$(cat .claude/skills/local-skill/SKILL.md)" = "mine" ]
+  [ "$(cat .claude/skills/.synced-manifest)" = "shared-skill" ]
+}
+
+@test "sync_upstream: a failed download writes nothing and leaves no temp dir" {
+  cd "$TEST_DIR"
+  stub_mktemp
+  curl() { return 22; }
+  sync_upstream workflow
+  [ ! -e ".claude/rules/synced" ]
+  [ ! -e ".claude/skills" ]
+  [ ! -e "$TEST_DIR/extract" ]
+}
+
+@test "sync_upstream: a corrupt archive writes nothing and leaves no temp dir" {
+  cd "$TEST_DIR"
+  stub_mktemp
+  curl() { echo "not a tarball"; }
+  sync_upstream workflow
+  [ ! -e ".claude/rules/synced" ]
+  [ ! -e "$TEST_DIR/extract" ]
+}
+
+@test "sync_upstream: a category name that is not a bare directory name is never used as a path" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  mkdir -p .claude/rules/keep
+  echo mine > .claude/rules/keep/k.md
+  # "../keep" resolves to an existing upstream dir (rules/../keep) and to an existing local
+  # dir (.claude/rules/synced/../keep): without the guard it would be replaced wholesale.
+  sync_upstream workflow ".." "../keep" "bad name" ""
+  [ "$(cat .claude/rules/keep/k.md)" = "mine" ]
+  [ ! -e ".claude/rules/synced/bad name" ]
+  [ ! -e ".claude/rules/rules" ]
+  [ "$(find .claude -name '*.new' -o -name '*.old' -o -name '*.tmp' | wc -l | tr -d ' ')" = "0" ]
+  [ -f ".claude/rules/synced/workflow/a.md" ]
+}
+
+# cp that fails for one destination path (last argument) and works everywhere else.
+fail_cp_for() {
+  local pattern="$1"
+  eval "cp() { case \"\${*: -1}\" in $pattern) return 1 ;; esac; command cp \"\$@\"; }"
+}
+
+@test "sync_upstream: a skill that fails to install is not recorded in the manifest" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  fail_cp_for '*shared-skill/SKILL.md.ai-guidelines-sync.tmp'
+  sync_upstream workflow
+  [ ! -e ".claude/skills/.synced-manifest" ]
+  [ ! -e ".claude/skills/shared-skill" ]
+  [ "$(find .claude -name '*.tmp' | wc -l | tr -d ' ')" = "0" ]
+  [ -f ".claude/rules/synced/workflow/a.md" ]   # categories unaffected
+}
+
+@test "sync_upstream: a skill whose later file fails is rolled back, not left half-installed" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  fail_cp_for '*shared-skill/sub/a.md.ai-guidelines-sync.tmp'      # SKILL.md sorts first and would already be installed
+  sync_upstream workflow
+  [ ! -e ".claude/skills/shared-skill" ]
+  [ ! -e ".claude/skills/.synced-manifest" ]
+  [ "${#WRITTEN_FILES[@]}" -gt 0 ]
+  for w in "${WRITTEN_FILES[@]}"; do [[ "$w" != *shared-skill* ]]; done
+}
+
+@test "sync_upstream: a skill overlaid onto an existing local dir is rolled back to only its own files" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  mkdir -p .claude/skills/shared-skill
+  echo local > .claude/skills/shared-skill/notes.md
+  fail_cp_for '*shared-skill/sub/a.md.ai-guidelines-sync.tmp'
+  sync_upstream workflow
+  [ "$(cat .claude/skills/shared-skill/notes.md)" = "local" ]
+  [ ! -e ".claude/skills/shared-skill/SKILL.md" ]
+  [ ! -e ".claude/skills/shared-skill/sub" ]                 # dir created by the failed run is pruned
+  [ ! -e ".claude/skills/.synced-manifest" ]
+}
+
+@test "sync_upstream: a rolled-back overlay restores the local file it had replaced" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  mkdir -p .claude/skills/shared-skill
+  echo local-version > .claude/skills/shared-skill/SKILL.md   # same name as upstream
+  fail_cp_for '*shared-skill/sub/a.md.ai-guidelines-sync.tmp'
+  sync_upstream workflow
+  [ "$(cat .claude/skills/shared-skill/SKILL.md)" = "local-version" ]
+  [ "$(find .claude -name '*.bak' -o -name '*.tmp' | wc -l | tr -d ' ')" = "0" ]
+}
+
+@test "sync_upstream: a copy failure on the path that has local content leaves that content untouched" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  mkdir -p .claude/skills/shared-skill
+  echo local-version > .claude/skills/shared-skill/SKILL.md
+  fail_cp_for '*shared-skill/SKILL.md.ai-guidelines-sync.tmp'   # fails before any move
+  sync_upstream workflow
+  [ "$(cat .claude/skills/shared-skill/SKILL.md)" = "local-version" ]
+  [ ! -e ".claude/skills/shared-skill/sub" ]
+  [ ! -e ".claude/skills/.synced-manifest" ]
+}
+
+@test "sync_upstream: a stray sidecar next to a local file makes the skill fail without touching the file" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  mkdir -p .claude/skills/shared-skill
+  echo local-version > .claude/skills/shared-skill/SKILL.md
+  echo old-backup > ".claude/skills/shared-skill/SKILL.md$UPSTREAM_BAK_SUFFIX"
+  sync_upstream workflow
+  [ "$(cat .claude/skills/shared-skill/SKILL.md)" = "local-version" ]
+  [ "$(cat ".claude/skills/shared-skill/SKILL.md$UPSTREAM_BAK_SUFFIX")" = "old-backup" ]
+  [ ! -e ".claude/skills/.synced-manifest" ]
+}
+
+@test "sync_upstream: a failed backup move leaves the local file untouched after rollback" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  mkdir -p .claude/skills/shared-skill
+  echo local-version > .claude/skills/shared-skill/SKILL.md
+  mv() { case "${*: -1}" in *"$UPSTREAM_BAK_SUFFIX") return 1 ;; esac; command mv "$@"; }
+  sync_upstream workflow
+  [ "$(cat .claude/skills/shared-skill/SKILL.md)" = "local-version" ]
+  [ ! -e ".claude/skills/shared-skill/sub" ]
+  [ ! -e ".claude/skills/.synced-manifest" ]
+  [ "$(find .claude -name '*.ai-guidelines-sync.*' | wc -l | tr -d ' ')" = "0" ]
+}
+
+@test "sync_upstream: a successful overlay replaces a same-named local file and leaves no backup" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  mkdir -p .claude/skills/shared-skill
+  echo local-version > .claude/skills/shared-skill/SKILL.md
+  sync_upstream workflow
+  [ "$(cat .claude/skills/shared-skill/SKILL.md)" = "skill" ]
+  [ "$(find .claude -name '*.bak' | wc -l | tr -d ' ')" = "0" ]
+  [ "$(cat .claude/skills/.synced-manifest)" = "shared-skill" ]
+}
+
+@test "replace_dir: a pending swap from a failed restore is settled before the next category" {
+  cd "$TEST_DIR"
+  mkdir -p src/swift .claude/rules/synced/workflow.old
+  echo s > src/swift/s.md
+  echo old > .claude/rules/synced/workflow.old/a.md
+  UPSTREAM_SWAP_OLD=".claude/rules/synced/workflow.old"      # as left by an unrestorable swap
+  UPSTREAM_SWAP_DEST=".claude/rules/synced/workflow"
+  replace_dir src/swift .claude/rules/synced/swift
+  [ "$(cat .claude/rules/synced/workflow/a.md)" = "old" ]    # restored, not clobbered
+  [ ! -e ".claude/rules/synced/workflow.old" ]
+  [ -f ".claude/rules/synced/swift/s.md" ]
+  [ -z "$UPSTREAM_SWAP_OLD" ]
+}
+
+@test "cleanup_upstream_tmp: rolls back the skill overlay that was in flight" {
+  cd "$TEST_DIR"
+  mkdir -p src/sub .claude/skills/shared-skill
+  echo local > .claude/skills/shared-skill/SKILL.md
+  echo notes > .claude/skills/shared-skill/notes.md
+  echo up > src/SKILL.md; echo up > src/sub/a.md
+  # Simulate an interrupt after two files were installed and before the overlay finished.
+  UPSTREAM_SKILL_DEST=".claude/skills/shared-skill"; UPSTREAM_SKILL_CREATED=false
+  install_file src/SKILL.md .claude/skills/shared-skill/SKILL.md
+  install_file src/sub/a.md .claude/skills/shared-skill/sub/a.md
+  cleanup_upstream_tmp
+  [ "$(cat .claude/skills/shared-skill/SKILL.md)" = "local" ]
+  [ "$(cat .claude/skills/shared-skill/notes.md)" = "notes" ]
+  [ ! -e ".claude/skills/shared-skill/sub" ]
+  [ "$(find .claude -name '*.ai-guidelines-sync.*' | wc -l | tr -d ' ')" = "0" ]
+}
+
+@test "cleanup_upstream_tmp: removes a skill dir the interrupted run had created" {
+  cd "$TEST_DIR"
+  mkdir -p src
+  echo up > src/SKILL.md
+  UPSTREAM_SKILL_DEST=".claude/skills/new-skill"; UPSTREAM_SKILL_CREATED=true
+  install_file src/SKILL.md .claude/skills/new-skill/SKILL.md
+  cleanup_upstream_tmp
+  [ ! -e ".claude/skills/new-skill" ]
+}
+
+@test "install_file: never overwrites a local file sitting at a sidecar name" {
+  cd "$TEST_DIR"
+  echo x > src.txt
+  echo precious > "dest.txt$UPSTREAM_BAK_SUFFIX"
+  run install_file src.txt dest.txt
+  [ "$status" -ne 0 ]
+  [ ! -e dest.txt ]
+  [ "$(cat "dest.txt$UPSTREAM_BAK_SUFFIX")" = "precious" ]
+}
+
+@test "settle_swap: a failed restore warns with both paths and leaves the old copy in place" {
+  cd "$TEST_DIR"
+  mkdir -p .claude/rules/synced/workflow.old
+  UPSTREAM_SWAP_OLD=".claude/rules/synced/workflow.old"; UPSTREAM_SWAP_DEST=".claude/rules/synced/workflow"
+  mv() { return 1; }
+  run settle_swap
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"workflow.old"* ]]
+  [[ "$output" == *"by hand"* ]]
+  [ -d ".claude/rules/synced/workflow.old" ]
+}
+
+@test "install_file: refuses a destination that is a directory" {
+  cd "$TEST_DIR"
+  echo x > src.txt
+  mkdir -p dest.d
+  run install_file src.txt dest.d
+  [ "$status" -ne 0 ]
+  [ "$(find . -name '*.ai-guidelines-sync.*' | wc -l | tr -d ' ')" = "0" ]
+}
+
+@test "cleanup_upstream_tmp: restores a category whose swap was interrupted" {
+  cd "$TEST_DIR"
+  mkdir -p .claude/rules/synced/workflow.old .claude/rules/synced/workflow.new
+  echo old > .claude/rules/synced/workflow.old/a.md
+  UPSTREAM_SWAP_OLD=".claude/rules/synced/workflow.old"
+  UPSTREAM_SWAP_DEST=".claude/rules/synced/workflow"
+  UPSTREAM_STAGE=".claude/rules/synced/workflow.new"
+  cleanup_upstream_tmp
+  [ "$(cat .claude/rules/synced/workflow/a.md)" = "old" ]
+  [ ! -e ".claude/rules/synced/workflow.old" ]
+  [ ! -e ".claude/rules/synced/workflow.new" ]
+}
+
+@test "read_active_categories: trims whitespace and refuses names that are not bare directory names" {
+  cd "$TEST_DIR"
+  mkdir -p .claude
+  printf '  swift  \n../skills\n..\nios/../mac\n\t\nxcode\n' > .claude/rules-sync.txt
+  result=$(read_active_categories 2>/dev/null)
+  [ "$result" = "$(printf 'workflow\nswift\nxcode')" ]
 }
