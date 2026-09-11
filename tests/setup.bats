@@ -18,6 +18,9 @@ setup() {
 }
 
 teardown() {
+  # Write-failure tests leave 555 directories; rm -rf on those fails and bats would
+  # report the teardown error instead of the assertion that actually failed.
+  chmod -R u+w "$TEST_DIR" 2>/dev/null
   rm -rf "$TEST_DIR"
 }
 
@@ -771,4 +774,72 @@ fail_cp_for() {
   printf '  swift  \n../skills\n..\nios/../mac\n\t\nxcode\n' > .claude/rules-sync.txt
   result=$(read_active_categories 2>/dev/null)
   [ "$result" = "$(printf 'workflow\nswift\nxcode')" ]
+}
+
+# ── output never claims a write that did not happen ──────────────────────────
+# A 555 directory blocks creating a file but not overwriting an existing owner-writable
+# one, so these tests never pre-create the target. Arrays are asserted with ${#arr[@]}:
+# "${arr[*]}" on an empty array aborts under set -u on bash 3.2 and drops the test.
+
+@test "write_workflow_file: a failed write is an error and is not reported as written" {
+  cd "$TEST_DIR"
+  mkdir -p ".github/workflows"
+  chmod 555 ".github/workflows"
+  status=0
+  write_workflow_file || status=$?
+  [ "$status" -ne 0 ]
+  [ ! -e ".github/workflows/sync-claude-rules.yml" ]
+  [ "${#WRITTEN_FILES[@]}" -eq 0 ]
+}
+
+@test "write_rules_sync_config: a failed write is an error and is not reported as written" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude"
+  chmod 555 ".claude"
+  status=0
+  write_rules_sync_config "swift" || status=$?
+  [ "$status" -ne 0 ]
+  [ ! -e ".claude/rules-sync.txt" ]
+  [ "${#WRITTEN_FILES[@]}" -eq 0 ]
+}
+
+@test "write_skills_manifest: a failed write is an error and is not reported as written" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude/skills"
+  chmod 555 ".claude/skills"
+  status=0
+  write_skills_manifest "foo" || status=$?
+  [ "$status" -ne 0 ]
+  [ ! -e ".claude/skills/.synced-manifest" ]
+  [ "${#WRITTEN_FILES[@]}" -eq 0 ]
+}
+
+@test "sync_upstream: a manifest that cannot be written fails the sync" {
+  make_upstream_archive
+  cd "$TEST_DIR"
+  write_skills_manifest() { return 1; }
+  status=0
+  sync_upstream workflow || status=$?
+  [ "$status" -ne 0 ]
+}
+
+@test "migrate_legacy_files: a failed rename is an error and prints no success line" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude"
+  printf 'swift\n' > ".claude/rules-sync"
+  chmod 555 ".claude"
+  run migrate_legacy_files
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"Renamed"* ]]
+  [ -f ".claude/rules-sync" ]
+}
+
+@test "cleanup_stale_rules: a failed removal is an error and prints no success line" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude/rules/synced/stale"
+  chmod 555 ".claude/rules/synced"
+  run cleanup_stale_rules workflow
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"Removed stale"* ]]
+  [ -d ".claude/rules/synced/stale" ]
 }
