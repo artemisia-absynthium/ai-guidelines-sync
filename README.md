@@ -28,11 +28,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/artemisia-absynthium/ai-guid
 
 ## What the script does
 
-1. **Checks out the default branch and pulls** — ensures setup runs on the latest remote state. Skipped gracefully when the repo has no commits or no upstream tracking branch.
+1. **Checks out the default branch and pulls** — re-reads the remote's default branch first (a clone's cached `origin/HEAD` goes stale when the default changes on GitHub), then ensures setup runs on the latest remote state. Skipped gracefully when the repo has no commits or no upstream tracking branch.
 2. **Detects project type** — infers rule categories from `.xcodeproj`, `Package.swift`, `build.gradle`, `package.json`, `playwright.config.*`, `pyproject.toml`
 3. **Writes `.claude/rules-sync.txt`** — category config; skip if already exists (preserving user edits)
 4. **Writes `.github/workflows/sync-claude-rules.yml`** — thin wrapper calling the composite action; always overwritten; sync day is chosen interactively
-5. **Pre-populates rules and skills** from upstream via GitHub API (so teammates get them immediately on next clone)
+5. **Pre-populates rules and skills** from a single tarball of the upstream repo — one download, outside the GitHub API rate limit, byte-identical to what the Action syncs (so teammates get them immediately on next clone)
 6. **Writes the guard hook** to `.claude/settings.json` — blocks accidental edits to sync-managed files
 7. **Migration** — renames `.claude/rules-sync` → `.claude/rules-sync.txt`, removes the retired `setup-project-ai` skill, cleans stale category directories
 
