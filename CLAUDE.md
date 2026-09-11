@@ -18,13 +18,8 @@ No other build step or package manager.
 
 ## Shell scripting constraints
 
-`setup.sh` targets bash 3.2 (macOS system bash). Active constraints:
-- `set -uo pipefail` — **no** `set -e`
-- Empty array + `set -u`: `"${arr[@]}"` aborts in bash 3.2 when the array is empty.
-  Use `${arr[@]+"${arr[@]}"}` (established codebase pattern, see commit `f0f3fbc`)
-- Guard early returns: `|| return 0` not `|| return` when absence means success
-- BATS: a non-zero exit from a test body silently drops that test (shows as count
-  mismatch `Executed N-1 instead of N`, not as `not ok`)
+See `.claude/rules/setup-sh.md` (loaded when `setup.sh` or `tests/` are in scope): bash 3.2,
+`set -uo pipefail` without `set -e`, empty-array traps, BATS drop semantics, the write-claim and sidecar rules.
 
 ## Architecture
 
