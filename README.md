@@ -28,7 +28,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/artemisia-absynthium/ai-guid
 
 ## What the script does
 
-1. **Checks out the default branch and pulls** — re-reads the remote's default branch first (a clone's cached `origin/HEAD` goes stale when the default changes on GitHub), then ensures setup runs on the latest remote state. Skipped gracefully when the repo has no commits or no upstream tracking branch.
+1. **Checks out the default branch and pulls** — re-reads the remote's default branch first (a clone's cached `origin/HEAD` goes stale when the default changes on GitHub), then ensures setup runs on the latest remote state. Skipped gracefully when the repo has no commits or no upstream tracking branch. A dirty tree that is already up to date proceeds; a clone that is behind its remote and cannot be fast-forwarded stops setup for that repo (in multi-repo mode it is listed under "Skipped" at the end).
 2. **Detects project type** — infers rule categories from `.xcodeproj`, `Package.swift`, `build.gradle`, `package.json`, `playwright.config.*`, `pyproject.toml`
 3. **Writes `.claude/rules-sync.txt`** — category config; skip if already exists (preserving user edits)
 4. **Writes `.github/workflows/sync-claude-rules.yml`** — thin wrapper calling the composite action; always overwritten; sync day is chosen interactively
