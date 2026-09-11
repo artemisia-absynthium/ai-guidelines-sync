@@ -934,12 +934,12 @@ assert_primed_ok() {   # $1 = path of the original copy
 
 # settings_json_usable — one test per alphabet member
 
-@test "settings_json_usable: {} is usable" { cd "$TEST_DIR"; write_settings '{}'; settings_json_usable .claude/settings.json; }
-@test "settings_json_usable: hooks null is usable" { cd "$TEST_DIR"; write_settings '{"hooks":null}'; settings_json_usable .claude/settings.json; }
-@test "settings_json_usable: other hook events are usable" { cd "$TEST_DIR"; write_settings '{"hooks":{"PostToolUse":[]}}'; settings_json_usable .claude/settings.json; }
-@test "settings_json_usable: foreign PreToolUse entries with absent or null parts are usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_FOREIGN_ENTRIES"; settings_json_usable .claude/settings.json; }
-@test "settings_json_usable: an outdated guard is usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_OUTDATED_GUARD"; settings_json_usable .claude/settings.json; }
-@test "settings_json_usable: the current guard is usable" { cd "$TEST_DIR"; current_guard_settings; settings_json_usable .claude/settings.json; }
+@test "settings_json_usable: {} is usable" { cd "$TEST_DIR"; write_settings '{}'; run settings_json_usable .claude/settings.json; [ "$status" -eq 0 ]; }
+@test "settings_json_usable: hooks null is usable" { cd "$TEST_DIR"; write_settings '{"hooks":null}'; run settings_json_usable .claude/settings.json; [ "$status" -eq 0 ]; }
+@test "settings_json_usable: other hook events are usable" { cd "$TEST_DIR"; write_settings '{"hooks":{"PostToolUse":[]}}'; run settings_json_usable .claude/settings.json; [ "$status" -eq 0 ]; }
+@test "settings_json_usable: foreign PreToolUse entries with absent or null parts are usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_FOREIGN_ENTRIES"; run settings_json_usable .claude/settings.json; [ "$status" -eq 0 ]; }
+@test "settings_json_usable: an outdated guard is usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_OUTDATED_GUARD"; run settings_json_usable .claude/settings.json; [ "$status" -eq 0 ]; }
+@test "settings_json_usable: the current guard is usable" { cd "$TEST_DIR"; current_guard_settings; run settings_json_usable .claude/settings.json; [ "$status" -eq 0 ]; }
 @test "settings_json_usable: a bare hook entry at the root is not usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_BARE_ENTRY"; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
 @test "settings_json_usable: hooks as an array is not usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_PERMISSIONS_HOOKS_ARRAY"; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
 @test "settings_json_usable: PreToolUse as an object is not usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_PRETOOLUSE_OBJECT"; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
@@ -1003,7 +1003,110 @@ assert_primed_ok() {   # $1 = path of the original copy
   [ "$(cat .claude/settings.json)" = "{}" ]
   [ "${#WRITTEN_FILES[@]}" -eq 0 ]
   [ "${#SKIPPED_FILES[@]}" -eq 0 ]
-  [ "$(find .claude -name '*.ai-guidelines-sync.tmp' | wc -l | tr -d ' ')" = "0" ]
+  [ "$(find .claude -name '*.ai-guidelines-sync.tmp*' | wc -l | tr -d ' ')" = "0" ]
+}
+
+@test "merge_guard_hook: creating a missing settings.json in an unwritable directory is an error" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude"
+  chmod 555 ".claude"
+  status=0
+  merge_guard_hook > "$TEST_DIR/out" || status=$?
+  [ "$status" -ne 0 ]
+  [ ! -e ".claude/settings.json" ]
+  [ "${#WRITTEN_FILES[@]}" -eq 0 ]
+}
+
+@test "merge_guard_hook: a live symlink named settings.json is an error and its target is untouched" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude" "$TEST_DIR/outside"
+  printf 'secret' > "$TEST_DIR/outside/target"
+  ln -s "$TEST_DIR/outside/target" ".claude/settings.json"
+  run merge_guard_hook
+  [ "$status" -ne 0 ]
+  [ "$(cat "$TEST_DIR/outside/target")" = "secret" ]
+  [ -L ".claude/settings.json" ]
+  [ ! -e "$TEST_DIR/outside/target.before-priming" ]
+}
+
+@test "merge_guard_hook: a dangling symlink at the backup name is refused and nothing is created" {
+  cd "$TEST_DIR"
+  write_settings "$FIXTURE_BARE_ENTRY"
+  ln -s "$TEST_DIR/planted" ".claude/settings.json.before-priming"
+  run merge_guard_hook
+  [ "$status" -ne 0 ]
+  [ ! -e "$TEST_DIR/planted" ]
+  [ "$(cat .claude/settings.json)" = "$FIXTURE_BARE_ENTRY" ]
+}
+
+@test "merge_guard_hook: an existing backup is refused rather than overwritten" {
+  cd "$TEST_DIR"
+  write_settings "$FIXTURE_BARE_ENTRY"
+  printf 'earlier original' > ".claude/settings.json.before-priming"
+  run merge_guard_hook
+  [ "$status" -ne 0 ]
+  [ "$(cat .claude/settings.json.before-priming)" = "earlier original" ]
+  [ "$(cat .claude/settings.json)" = "$FIXTURE_BARE_ENTRY" ]
+}
+
+@test "merge_guard_hook: an empty projection is an error, not an empty settings.json" {
+  cd "$TEST_DIR"
+  write_settings "$FIXTURE_BARE_ENTRY"
+  project_settings_document() { :; }
+  status=0
+  merge_guard_hook > "$TEST_DIR/out" || status=$?
+  [ "$status" -ne 0 ]
+  [ "$(cat .claude/settings.json)" = "$FIXTURE_BARE_ENTRY" ]
+  [ "${#WRITTEN_FILES[@]}" -eq 0 ]
+}
+
+@test "merge_guard_hook: a failed rename leaves no sidecar and clears the interrupt-trap stage" {
+  cd "$TEST_DIR"
+  write_settings '{}'
+  mv() { return 1; }
+  status=0
+  merge_guard_hook > "$TEST_DIR/out" || status=$?
+  [ "$status" -ne 0 ]
+  [ "$(find .claude -name '*.ai-guidelines-sync.tmp*' | wc -l | tr -d ' ')" = "0" ]
+  [ -z "$UPSTREAM_STAGE" ]
+  [ "${#WRITTEN_FILES[@]}" -eq 0 ]
+}
+
+@test "cleanup_upstream_tmp: removes a settings sidecar the interrupted run had staged" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude"
+  : > ".claude/settings.json.ai-guidelines-sync.tmp.abc123"
+  UPSTREAM_STAGE=".claude/settings.json.ai-guidelines-sync.tmp.abc123"
+  cleanup_upstream_tmp
+  [ ! -e ".claude/settings.json.ai-guidelines-sync.tmp.abc123" ]
+}
+
+@test "migrate_legacy_files: a failed deprecated-skill removal is an error and prints no success line" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude/skills/setup-project-ai"
+  chmod 555 ".claude/skills"
+  run migrate_legacy_files
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"Removed deprecated"* ]]
+  [ -d ".claude/skills/setup-project-ai" ]
+}
+
+@test "output helpers: a message is printed verbatim, escape sequences are not decoded" {
+  run err 'name\033[0m tail'
+  [[ "$output" == *'name\033[0m tail'* ]]
+  run success 'a\tb'
+  [[ "$output" == *'a\tb'* ]]
+}
+
+@test "install_file: a dangling symlink at a sidecar name is refused" {
+  cd "$TEST_DIR"
+  mkdir -p "skills/s"
+  printf 'x' > "$TEST_DIR/src"
+  ln -s "$TEST_DIR/planted" "skills/s/f.md.ai-guidelines-sync.tmp"
+  run install_file "$TEST_DIR/src" "skills/s/f.md"
+  [ "$status" -ne 0 ]
+  [ ! -e "$TEST_DIR/planted" ]
+  [ ! -e "skills/s/f.md" ]
 }
 
 @test "merge_guard_hook: a directory named settings.json is an error" {
@@ -1026,10 +1129,19 @@ assert_primed_ok() {   # $1 = path of the original copy
 @test "merge_guard_hook: a stray sidecar next to settings.json is an error and the file is untouched" {
   cd "$TEST_DIR"
   write_settings '{}'
-  : > ".claude/settings.json.ai-guidelines-sync.tmp"
+  : > ".claude/settings.json.ai-guidelines-sync.tmp.stale"
   run merge_guard_hook
   [ "$status" -ne 0 ]
   [ "$(cat .claude/settings.json)" = "{}" ]
+}
+
+@test "merge_guard_hook: a stray sidecar is refused before settings.json would be created" {
+  cd "$TEST_DIR"
+  mkdir -p ".claude"
+  : > ".claude/settings.json.ai-guidelines-sync.tmp.stale"
+  run merge_guard_hook
+  [ "$status" -ne 0 ]
+  [ ! -e ".claude/settings.json" ]
 }
 
 @test "merge_guard_hook: an unusable file whose backup cannot be written is an error before any change" {

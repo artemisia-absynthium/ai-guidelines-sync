@@ -19,7 +19,7 @@ No other build step or package manager.
 ## Shell scripting constraints
 
 See `.claude/rules/setup-sh.md` (loaded when `setup.sh` or `tests/` are in scope): bash 3.2,
-`set -uo pipefail` without `set -e`, empty-array traps, BATS drop semantics, the write-claim rule.
+`set -uo pipefail` without `set -e`, empty-array traps, BATS drop semantics, the write-claim and sidecar rules.
 
 ## Architecture
 
