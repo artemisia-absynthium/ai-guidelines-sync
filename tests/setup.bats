@@ -419,6 +419,30 @@ EOF
   [ "$status" -eq 0 ]
 }
 
+@test "checkout_default_and_pull: a clone behind its upstream whose pull fails is a hard stop" {
+  git init -q --bare "$TEST_DIR/origin.git"
+  git init -q "$TEST_DIR/seed"
+  cd "$TEST_DIR/seed"
+  echo a > tracked.txt
+  git add tracked.txt
+  git -c user.email=t@t -c user.name=t commit -q -m init
+  git branch -m main
+  git remote add origin "$TEST_DIR/origin.git"
+  git push -q -u origin main
+  git clone -q "$TEST_DIR/origin.git" "$TEST_DIR/work"
+  echo b > tracked.txt                                   # remote moves on after the clone
+  git -c user.email=t@t -c user.name=t commit -q -am second
+  git push -q origin main
+  cd "$TEST_DIR/work"
+  git config pull.rebase true
+  echo dirty >> tracked.txt                               # local unstaged change blocks the pull
+  run checkout_default_and_pull
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"behind"* ]]
+  [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]   # nothing was forced
+  grep -q dirty tracked.txt                                        # local work untouched
+}
+
 @test "checkout_default_and_pull: follows a default branch created on the remote after the clone" {
   git init -q --bare "$TEST_DIR/origin.git"
   git init -q "$TEST_DIR/seed"

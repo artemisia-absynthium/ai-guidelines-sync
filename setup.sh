@@ -160,9 +160,19 @@ checkout_default_and_pull() {
 
     info "Pulling latest changes..."
     if ! git pull --ff-only; then
-        # Not fatal: the re-run-after-first-sync flow arrives with the first run's own
-        # uncommitted writes, and setup is idempotent on the current state.
-        warn "git pull --ff-only failed (dirty tree or divergence) — proceeding on the current state."
+        # A dirty tree alone is tolerated: the re-run-after-first-sync flow arrives with
+        # the first run's own uncommitted writes, and setup is idempotent on the current
+        # state. A clone that is *behind* its upstream is not: setup would write on a
+        # stale base and the commit could not be pushed (or, rebased later, would
+        # collide with the Action's own sync commits on the same files).
+        local behind
+        git fetch --quiet origin >/dev/null 2>&1 || true
+        behind=$(git rev-list --count HEAD..@{u} 2>/dev/null) || behind=0
+        if [ "${behind:-0}" -gt 0 ]; then
+            err "This clone is $behind commit(s) behind its upstream and could not be fast-forwarded. Commit or stash local changes, pull, and re-run."
+            return 1
+        fi
+        warn "git pull --ff-only failed (dirty tree) — the clone is up to date with its upstream, proceeding on the current state."
         return 0
     fi
 }
