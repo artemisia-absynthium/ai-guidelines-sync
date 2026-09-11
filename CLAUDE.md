@@ -29,6 +29,10 @@ No other build step or package manager.
   write it describes; a failed write is `fail_write <path>` (or `err`) + `return 1`, and
   `setup_project` calls each step with `|| return 1`. The output never names a write that did
   not happen, and a run that did not complete every step exits non-zero.
+- Temp files are created beside their destination (`<path>.ai-guidelines-sync.tmp`) and renamed
+  over it; a pre-existing sidecar is an interrupted run and a hard stop, never overwritten.
+- `.claude/settings.json`: the shape rule lives once in `JQ_SETTINGS_DEFS`; an unusable file is
+  primed (projection), never refused — see the README ownership table.
 
 ## Architecture
 

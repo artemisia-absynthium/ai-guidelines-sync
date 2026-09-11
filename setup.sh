@@ -691,6 +691,49 @@ sync_upstream() {
     fi
 }
 
+# ── settings.json shape ───────────────────────────────────────────────────────
+# The rule at every level is "null or correctly typed": root object; hooks null/object;
+# hooks.PreToolUse null/array; each entry an object whose hooks is null or an array of
+# objects whose command is null or a string. One definition, shared by the predicate and
+# the projection so they cannot drift (a $VAR inside a single-quoted jq program is a jq
+# compile error, so sharing goes through a def prefix).
+JQ_SETTINGS_DEFS='def entry_ok: (type == "object" and ((.hooks|type) == "null" or ((.hooks|type) == "array" and all(.hooks[]; type == "object" and ((.command|type) == "null" or (.command|type) == "string")))));'
+
+# Usage: settings_json_usable <file>
+# 0 when the file holds exactly one JSON document in the shape merge_guard_hook reads.
+settings_json_usable() {
+    jq -e -s "$JQ_SETTINGS_DEFS"'length == 1 and (.[0]
+        | type == "object"
+        and ((.hooks|type) == "null" or (.hooks|type) == "object")
+        and ((.hooks.PreToolUse|type) == "null" or (.hooks.PreToolUse|type) == "array")
+        and all(.hooks.PreToolUse // [] | .[]; entry_ok))' "$1" >/dev/null 2>&1 || return 1
+}
+
+# Usage: project_settings_document <file>
+# Prints the document projected onto the shape: readable parts kept, unreadable parts
+# dropped; absent keys stay absent, so the projection is the identity on a usable document.
+# Anything but exactly one JSON document projects from {}.
+project_settings_document() {
+    local doc
+    doc=$(jq -c -s 'if length == 1 then .[0] else {} end' "$1" 2>/dev/null) || doc='{}'
+    printf '%s\n' "$doc" | jq "$JQ_SETTINGS_DEFS"'
+        (if type == "object" then . else {} end)
+        | (if (.hooks|type) == "null" or (.hooks|type) == "object" then . else del(.hooks) end)
+        | (if (.hooks.PreToolUse|type) == "null" then .
+           elif (.hooks.PreToolUse|type) == "array" then .hooks.PreToolUse |= map(select(entry_ok))
+           else del(.hooks.PreToolUse) end)'
+}
+
+# Usage: back_up_settings_json <file>
+# Copies the file beside itself before priming and prints the backup path. The backup is
+# the recovery path for an uncommitted hand edit; git history is not.
+back_up_settings_json() {
+    local backup="$1.before-priming"
+    [ -e "$backup" ] && backup="$backup.$(date +%s)"
+    cp -p "$1" "$backup" || { fail_write "$backup"; return 1; }
+    printf '%s\n' "$backup"
+}
+
 merge_guard_hook() {
     local settings_file=".claude/settings.json"
     local guard_cmd
@@ -700,37 +743,64 @@ merge_guard_hook() {
     guard_entry=$(jq -n --arg cmd "$guard_cmd" \
         '{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":$cmd}]}')
 
-    [ -f "$settings_file" ] || echo '{}' > "$settings_file"
+    if [ -L "$settings_file" ] && [ ! -e "$settings_file" ]; then
+        err "$settings_file is a dangling symlink — fix it and re-run."
+        return 1
+    fi
+    [ -e "$settings_file" ] || echo '{}' > "$settings_file" || { fail_write "$settings_file"; return 1; }
+    [ -f "$settings_file" ] || { err "$settings_file is not a regular file — fix it and re-run."; return 1; }
+
+    local tmp="$settings_file.ai-guidelines-sync.tmp"
+    if [ -e "$tmp" ]; then
+        err "$tmp exists — a previous run was interrupted; inspect and remove it, then re-run."
+        return 1
+    fi
+
+    # An unusable file (the script's own earlier output, a hand edit with a stray comma, a
+    # bare hook entry at the root) is primed rather than refused: the update command must
+    # not fail where the user did nothing. Readable parts are kept, the original is backed
+    # up, and the warning says so — including that keys from the old shape may remain.
+    local doc primed=false backup
+    if settings_json_usable "$settings_file"; then
+        doc=$(cat "$settings_file")
+    else
+        backup=$(back_up_settings_json "$settings_file") || return 1
+        doc=$(project_settings_document "$settings_file")
+        primed=true
+        warn "$settings_file was not in the shape Claude Code reads and was primed: readable parts kept, the rest dropped (original at $backup). Review with git diff — keys from the old shape may remain."
+    fi
 
     # "Already present" means the exact current command. A guard that merely mentions
     # rules/synced is an outdated variant and is replaced: guards written before the
     # tool_input fix read .file_path, which the PreToolUse payload never carries, so they
-    # never fired — a re-run of this script must repair them, not skip them.
-    if jq -e --arg cmd "$guard_cmd" \
+    # never fired — a re-run of this script must repair them, not skip them. A primed
+    # document is never skipped: it was rewritten, so it is written and reported as such.
+    if [ "$primed" = false ] && printf '%s\n' "$doc" | jq -e --arg cmd "$guard_cmd" \
         '[.hooks.PreToolUse // [] | .[] | (.hooks // [])[] | (.command // "")] | any(. == $cmd)' \
-        "$settings_file" >/dev/null 2>&1; then
+        >/dev/null 2>&1; then
         SKIPPED_FILES+=(".claude/settings.json (guard hook already present)")
-        return
+        return 0
     fi
 
     local outdated
-    outdated=$(jq '[.hooks.PreToolUse // [] | .[]
-        | select((.hooks // []) | map((.command // "") | test("rules/synced")) | any)] | length' \
-        "$settings_file")
+    outdated=$(printf '%s\n' "$doc" | jq '[.hooks.PreToolUse // [] | .[]
+        | select((.hooks // []) | map((.command // "") | test("rules/synced")) | any)] | length')
 
-    local tmp
-    tmp=$(mktemp)
-    jq --argjson entry "$guard_entry" '
+    # jq must never read the file it writes: the sidecar is renamed over the file only once
+    # the whole document is on disk.
+    if printf '%s\n' "$doc" | jq --argjson entry "$guard_entry" '
         .hooks = (.hooks // {})
         | .hooks.PreToolUse = ([.hooks.PreToolUse // [] | .[]
             | select(((.hooks // []) | map((.command // "") | test("rules/synced")) | any) | not)]
-            + [$entry])' \
-        "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
-
-    if [ "$outdated" -gt 0 ]; then
-        WRITTEN_FILES+=(".claude/settings.json (guard hook updated)")
+            + [$entry])' > "$tmp" && mv "$tmp" "$settings_file"; then
+        local what="guard hook added"
+        if [ "$outdated" -gt 0 ]; then what="guard hook updated"; fi
+        if [ "$primed" = true ]; then what="settings primed, $what"; fi
+        WRITTEN_FILES+=(".claude/settings.json ($what)")
     else
-        WRITTEN_FILES+=(".claude/settings.json (guard hook added)")
+        rm -f "$tmp"
+        fail_write "$settings_file"
+        return 1
     fi
 }
 

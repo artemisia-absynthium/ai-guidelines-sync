@@ -33,7 +33,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/artemisia-absynthium/ai-guid
 3. **Writes `.claude/rules-sync.txt`** — category config; skip if already exists (preserving user edits)
 4. **Writes `.github/workflows/sync-claude-rules.yml`** — thin wrapper calling the composite action; always overwritten; sync day is chosen interactively
 5. **Pre-populates rules and skills** from a single tarball of the upstream repo — one download, outside the GitHub API rate limit, byte-identical to what the Action syncs (so teammates get them immediately on next clone)
-6. **Writes the guard hook** to `.claude/settings.json` — blocks accidental edits to sync-managed files
+6. **Writes the guard hook** to `.claude/settings.json` — blocks accidental edits to sync-managed files. A settings.json the script cannot read (not valid JSON, or `hooks` not in the shape Claude Code reads) is primed rather than refused: readable parts are kept, unreadable parts dropped, the original is copied to `settings.json.before-priming`, and a warning says so — review the result with `git diff`, keys from the old shape may remain
 7. **Migration** — renames `.claude/rules-sync` → `.claude/rules-sync.txt`, removes the retired `setup-project-ai` skill, cleans stale category directories
 
 Re-running the script is the update command — `rules-sync.txt` is preserved, everything else is refreshed. In multi-repo mode, per-repo failures are collected and printed as a summary at the end rather than aborting the run.
@@ -88,7 +88,8 @@ revert is when you find out.
 | `.claude/rules/synced/<cat>/` | Upstream | `rsync --delete` — the directory becomes exactly the upstream category | File (or whole category) disappears from every subscriber on its next sync |
 | `.claude/skills/<name>/` | Mixed — upstream and local skills share the directory | rsync without `--delete`; the manifest records which names are upstream-owned | Deleted only if the manifest lists it; a local skill with the same name created *after* the manifest dropped it is invisible to the sync forever |
 | `.claude/rules-sync.txt` | Subscriber (upstream appends detected categories) | Merge: auto-detected categories appended, commented lines respected as exclusions | n/a — never deleted by the sync |
-| Hooks | — | No hook step exists at present; if one returns, its contract must be stated here first (previous incarnation: skip-when-source-absent, `rsync --delete` when present) | — |
+| `.claude/settings.json` | Subscriber | `setup.sh` only: the script owns exactly one `PreToolUse` entry whose command matches `rules/synced` (replaced on re-run); everything else is merged around. An unusable file is primed — kept: every readable part; dropped with a warning: a non-object root or `hooks`, a non-array `PreToolUse`, and `PreToolUse` entries that are not objects or whose `hooks`/`command` have the wrong type; the original is copied to `settings.json.before-priming`. A directory, dangling symlink or unwritable file is a hard stop | n/a — never touched by the Action |
+| Hook directories (Action) | — | No hook-directory step exists in the Action at present; if one returns, its contract must be stated here first (previous incarnation: skip-when-source-absent, `rsync --delete` when present) | — |
 
 Consequence worth knowing when working *with* the grain of this contract: removing a skill
 upstream and re-creating it locally in a subscriber (after one sync run) permanently hands
