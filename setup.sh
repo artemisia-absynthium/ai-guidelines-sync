@@ -166,13 +166,13 @@ checkout_default_and_pull() {
         # stale base and the commit could not be pushed (or, rebased later, would
         # collide with the Action's own sync commits on the same files).
         local behind
-        git fetch --quiet origin >/dev/null 2>&1 || true
+        git fetch --quiet >/dev/null 2>&1 || true   # the current branch's upstream remote, i.e. what @{u} names
         behind=$(git rev-list --count HEAD..@{u} 2>/dev/null) || behind=0
         if [ "${behind:-0}" -gt 0 ]; then
-            err "This clone is $behind commit(s) behind its upstream and could not be fast-forwarded. Commit or stash local changes, pull, and re-run."
+            err "This clone is $behind commit(s) behind its upstream and could not be fast-forwarded (local changes, diverged history, or an unreachable remote). Commit or stash, rebase or merge onto the upstream, then re-run."
             return 1
         fi
-        warn "git pull --ff-only failed (dirty tree) — the clone is up to date with its upstream, proceeding on the current state."
+        warn "git pull --ff-only failed — the clone is not behind its upstream, proceeding on the current state."
         return 0
     fi
 }

@@ -429,6 +429,7 @@ EOF
   git branch -m main
   git remote add origin "$TEST_DIR/origin.git"
   git push -q -u origin main
+  git -C "$TEST_DIR/origin.git" symbolic-ref HEAD refs/heads/main   # not every git defaults to main
   git clone -q "$TEST_DIR/origin.git" "$TEST_DIR/work"
   echo b > tracked.txt                                   # remote moves on after the clone
   git -c user.email=t@t -c user.name=t commit -q -am second
@@ -453,6 +454,7 @@ EOF
   git branch -m main
   git remote add origin "$TEST_DIR/origin.git"
   git push -q origin main
+  git -C "$TEST_DIR/origin.git" symbolic-ref HEAD refs/heads/main       # not every git defaults to main
   git clone -q "$TEST_DIR/origin.git" "$TEST_DIR/work"                  # origin/HEAD -> main, no develop yet
   git branch develop
   git push -q origin develop
