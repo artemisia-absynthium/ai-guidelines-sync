@@ -5,7 +5,9 @@
 set -uo pipefail
 
 UPSTREAM_REPO="artemisia-absynthium/ai-guidelines-sync"
-UPSTREAM_API="https://api.github.com/repos/${UPSTREAM_REPO}"
+# One archive download instead of one API call per file: codeload is not subject to the
+# unauthenticated API quota (60/hour), which a single repo's ~40 files nearly exhausted.
+UPSTREAM_ARCHIVE_URL="https://github.com/${UPSTREAM_REPO}/archive/HEAD.tar.gz"
 
 # ── Output helpers ────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -34,7 +36,83 @@ ensure_jq() {
     JQ_INSTALLED_BY_SCRIPT=true
 }
 
+# State of an in-flight sync_upstream, so an interrupt at any point can be undone by the
+# EXIT trap: the extraction dir, a partially written path, the previous copy of a category
+# directory being swapped out (restored if the swap did not complete), and the local files
+# a skill overlay has replaced (restored if the overlay did not complete).
+UPSTREAM_TMP=""
+UPSTREAM_STAGE=""
+UPSTREAM_SWAP_OLD=""
+UPSTREAM_SWAP_DEST=""
+UPSTREAM_BACKUPS=()      # paths whose previous content sits at "<path>$UPSTREAM_BAK_SUFFIX"
+UPSTREAM_SKILL_DEST=""   # skill directory being overlaid right now
+UPSTREAM_SKILL_CREATED=false
+UPSTREAM_SKILL_FILES=()  # files this run has written into it (or committed to writing)
+UPSTREAM_SKILL_DIRS=()   # directories this run created inside it
+# Sidecar names install_file writes next to a destination. Distinctive on purpose: the
+# skills directory is shared with local files, and a plain ".tmp"/".bak" could collide.
+UPSTREAM_TMP_SUFFIX=".ai-guidelines-sync.tmp"
+UPSTREAM_BAK_SUFFIX=".ai-guidelines-sync.bak"
+
+# Finish or undo a category swap left in flight. Safe to call when none is pending.
+settle_swap() {
+    if [ -n "$UPSTREAM_SWAP_OLD" ] && [ -e "$UPSTREAM_SWAP_OLD" ]; then
+        if [ -e "$UPSTREAM_SWAP_DEST" ]; then
+            rm -rf "$UPSTREAM_SWAP_OLD"          # swap completed; drop the previous copy
+        elif ! mv "$UPSTREAM_SWAP_OLD" "$UPSTREAM_SWAP_DEST"; then
+            warn "Could not restore $UPSTREAM_SWAP_DEST — its previous content is at $UPSTREAM_SWAP_OLD; move it back by hand."
+        fi
+    fi
+    UPSTREAM_SWAP_OLD=""; UPSTREAM_SWAP_DEST=""
+    return 0
+}
+
+# Put back the local files a skill overlay replaced (on rollback) — or, with drop=1,
+# discard the backups (on success). Usage: settle_backups [drop]
+settle_backups() {
+    local drop="${1:-}" path
+    for path in ${UPSTREAM_BACKUPS[@]+"${UPSTREAM_BACKUPS[@]}"}; do
+        if [ -n "$drop" ]; then
+            rm -f "$path$UPSTREAM_BAK_SUFFIX"
+        elif [ -e "$path$UPSTREAM_BAK_SUFFIX" ] && ! mv -f "$path$UPSTREAM_BAK_SUFFIX" "$path"; then
+            warn "Could not restore $path — its previous content is at $path$UPSTREAM_BAK_SUFFIX; move it back by hand."
+        fi
+    done
+    UPSTREAM_BACKUPS=()
+    return 0
+}
+
+# Undo a skill overlay that did not complete: a half-installed skill would be invisible
+# to the manifest. Removes what this run wrote, restores what it replaced.
+rollback_skill() {
+    [ -n "$UPSTREAM_SKILL_DEST" ] || return 0
+    if [ "$UPSTREAM_SKILL_CREATED" = true ]; then
+        rm -rf "$UPSTREAM_SKILL_DEST"
+        UPSTREAM_BACKUPS=()   # nothing pre-existed inside a dir this run created
+    else
+        local path
+        for path in ${UPSTREAM_SKILL_FILES[@]+"${UPSTREAM_SKILL_FILES[@]}"}; do rm -f "$path"; done
+        for path in ${UPSTREAM_SKILL_DIRS[@]+"${UPSTREAM_SKILL_DIRS[@]}"}; do rm -rf "$path"; done
+        settle_backups        # put the replaced local files back
+    fi
+    UPSTREAM_SKILL_DEST=""; UPSTREAM_SKILL_CREATED=false; UPSTREAM_SKILL_FILES=(); UPSTREAM_SKILL_DIRS=()
+    return 0
+}
+
+# Remove whatever an interrupted sync_upstream left in flight. Also trapped inside the
+# per-repo subshell of multi-repo mode, which the parent's EXIT trap never reaches.
+cleanup_upstream_tmp() {
+    [ -n "$UPSTREAM_TMP" ] && rm -rf "$UPSTREAM_TMP"
+    [ -n "$UPSTREAM_STAGE" ] && rm -rf "$UPSTREAM_STAGE"
+    settle_swap
+    rollback_skill
+    settle_backups
+    UPSTREAM_TMP=""; UPSTREAM_STAGE=""
+    return 0
+}
+
 cleanup_deps() {
+    cleanup_upstream_tmp
     if [ "$JQ_INSTALLED_BY_SCRIPT" = true ]; then
         warn "Removing jq (was installed temporarily)..."
         brew uninstall jq >/dev/null 2>&1 || true
@@ -46,8 +124,20 @@ trap cleanup_deps EXIT
 # ── Git helpers ───────────────────────────────────────────────────────────────
 checkout_default_and_pull() {
     local default_branch
-    default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
-        | sed 's|refs/remotes/origin/||') || true
+    # Ask the remote for its current default branch: the clone-time origin/HEAD goes stale
+    # when the default changes on the remote, and `git remote set-head --auto` refuses to
+    # update it when the new default was never fetched. Offline, keep the cached value.
+    default_branch=$(git ls-remote --symref origin HEAD 2>/dev/null \
+        | sed -n 's|^ref: refs/heads/\([^[:space:]]*\)[[:space:]]*HEAD$|\1|p') || true
+    if [ -n "$default_branch" ]; then
+        # Make the branch checkout-able even when it never existed at clone time, and
+        # repair the cached origin/HEAD for tools that read it.
+        git fetch --quiet origin >/dev/null 2>&1 || true
+        git remote set-head origin "$default_branch" >/dev/null 2>&1 || true
+    else
+        default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
+            | sed 's|refs/remotes/origin/||') || true
+    fi
     : "${default_branch:=main}"
 
     # No commits yet — nothing to check out; proceed on current (empty) branch.
@@ -313,7 +403,17 @@ read_active_categories() {
     while IFS= read -r line; do
         # Skip comments and blank lines
         [[ "$line" =~ ^[[:space:]]*# ]] && continue
-        [[ -z "${line// }" ]] && continue
+        [[ -z "${line//[[:space:]]/}" ]] && continue
+        # Trim surrounding whitespace
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+        # A category is a bare directory name under rules/ — it becomes part of a path
+        # that is deleted and rewritten, so anything else is refused, never interpreted.
+        case "$line" in
+            ''|*[!A-Za-z0-9_-]*)
+                warn "Ignoring invalid category in .claude/rules-sync.txt: '$line'" >&2
+                continue ;;
+        esac
         # Don't duplicate workflow
         [ "$line" = "workflow" ] && continue
         echo "$line"
@@ -424,55 +524,153 @@ write_skills_manifest() {
     WRITTEN_FILES+=(".claude/skills/.synced-manifest")
 }
 
+# Copy one file into place through a temp name, so an interrupt never leaves a truncated
+# file under a real name. An existing file is kept at "<dest>.bak" and recorded in
+# UPSTREAM_BACKUPS so a later rollback can restore it. Usage: install_file <src> <dest>
+install_file() {
+    local src="$1" dest="$2"
+    local tmp="$dest$UPSTREAM_TMP_SUFFIX" bak="$dest$UPSTREAM_BAK_SUFFIX"
+    # mv onto an existing directory would move the temp file *inside* it and exit 0.
+    [ -d "$dest" ] && return 1
+    # The sidecar names are not ours to overwrite if something already sits there.
+    if [ -e "$tmp" ] || [ -e "$bak" ]; then
+        warn "Refusing to write $dest: $tmp or $bak already exists — remove it and re-run."
+        return 1
+    fi
+    # Remember the topmost directory mkdir -p is about to create (if any), so a rollback
+    # removes exactly what this run made and nothing that was already there.
+    local parent top="" d
+    parent=$(dirname "$dest"); d="$parent"
+    while [ ! -e "$d" ] && [ "$d" != "." ] && [ "$d" != "/" ] && [ "$d" != "$UPSTREAM_SKILL_DEST" ]; do
+        top="$d"; d=$(dirname "$d")
+    done
+    [ -n "$top" ] && UPSTREAM_SKILL_DIRS+=("$top")   # recorded first: rm -rf tolerates absence
+    mkdir -p "$parent" || return 1
+    UPSTREAM_STAGE="$tmp"
+    if ! cp "$src" "$UPSTREAM_STAGE"; then
+        rm -f "$UPSTREAM_STAGE"; UPSTREAM_STAGE=""
+        return 1
+    fi
+    # If a file is there, move it to its backup — recorded *before* the move so an
+    # interrupt in between still restores it (settle_backups skips backups that do not
+    # exist).
+    if [ -e "$dest" ]; then
+        UPSTREAM_BACKUPS+=("$dest")
+        if ! mv "$dest" "$bak"; then
+            unset "UPSTREAM_BACKUPS[$(( ${#UPSTREAM_BACKUPS[@]} - 1 ))]"
+            rm -f "$UPSTREAM_STAGE"; UPSTREAM_STAGE=""
+            return 1
+        fi
+    fi
+    # Only now is $dest this run's to remove on rollback: the local content is safely at
+    # $bak or was never there.
+    UPSTREAM_SKILL_FILES+=("$dest")
+    if ! mv "$UPSTREAM_STAGE" "$dest"; then
+        rm -f "$UPSTREAM_STAGE"; UPSTREAM_STAGE=""
+        return 1
+    fi
+    UPSTREAM_STAGE=""
+    return 0
+}
+
+# Replace a directory with a copy of another one. The new tree is assembled next to the
+# destination, the old one is moved aside, the new one renamed in, and only then the old
+# one deleted — every intermediate state is undone by cleanup_upstream_tmp.
+# Usage: replace_dir <src_dir> <dest_dir>
+replace_dir() {
+    local src="$1" dest="$2"
+    settle_swap   # never clobber a swap a previous call could not finish
+    UPSTREAM_STAGE="$dest.new"
+    rm -rf "$UPSTREAM_STAGE"
+    if ! mkdir -p "$UPSTREAM_STAGE" || ! cp -R "$src/." "$UPSTREAM_STAGE/"; then
+        rm -rf "$UPSTREAM_STAGE"; UPSTREAM_STAGE=""
+        return 1
+    fi
+    UPSTREAM_SWAP_DEST="$dest"
+    UPSTREAM_SWAP_OLD="$dest.old"
+    rm -rf "$UPSTREAM_SWAP_OLD"
+    if [ -e "$dest" ] && ! mv "$dest" "$UPSTREAM_SWAP_OLD"; then
+        rm -rf "$UPSTREAM_STAGE"; UPSTREAM_STAGE=""; UPSTREAM_SWAP_OLD=""; UPSTREAM_SWAP_DEST=""
+        return 1
+    fi
+    if ! mv "$UPSTREAM_STAGE" "$dest"; then
+        rm -rf "$UPSTREAM_STAGE"; UPSTREAM_STAGE=""
+        settle_swap   # restores .old, or warns and clears if even that fails
+        return 1
+    fi
+    UPSTREAM_STAGE=""
+    settle_swap       # dest exists now: drops .old
+    return 0
+}
+
 # Fetch upstream rules and skills and write them into the project.
+# Downloads one tarball of the upstream repo and copies from it, so the files are
+# byte-identical to what the Action's rsync writes. Each active category directory is
+# replaced wholesale (it is upstream-owned); skills are overlaid file by file without
+# deleting, since the directory is shared with local skills — the manifest tracks the
+# upstream names.
 # Usage: sync_upstream <active_cat> [<active_cat> ...]
 sync_upstream() {
     local -a active_cats=("$@")
-    info "Fetching upstream file list..."
-    local tree_json=""
-    tree_json=$(curl -fsSL "${UPSTREAM_API}/git/trees/HEAD?recursive=1" 2>/dev/null) || true
+    info "Fetching upstream rules and skills..."
 
-    if ! ([ -n "$tree_json" ] && echo "$tree_json" | jq -e '.tree' >/dev/null 2>&1); then
-        warn "Could not fetch upstream file list — skipping pre-population. Sync will run via GitHub Actions."
+    UPSTREAM_TMP=$(mktemp -d 2>/dev/null) || UPSTREAM_TMP=""
+    if [ -z "$UPSTREAM_TMP" ] || ! curl -fsSL "$UPSTREAM_ARCHIVE_URL" 2>/dev/null \
+        | tar -xzf - -C "$UPSTREAM_TMP" --strip-components=1 2>/dev/null \
+        || [ ! -d "$UPSTREAM_TMP/rules" ]; then
+        cleanup_upstream_tmp
+        warn "Could not fetch upstream rules and skills — skipping pre-population. Sync will run via GitHub Actions."
         return
     fi
 
-    local -a upstream_paths=()
-    local ac
-    for ac in "${active_cats[@]}"; do
-        while IFS= read -r p; do
-            [ -n "$p" ] && upstream_paths+=("$p")
-        done < <(echo "$tree_json" | jq -r --arg cat "$ac" \
-            '.tree[] | select(.type=="blob") | .path | select(startswith("rules/"+$cat+"/"))' \
-            2>/dev/null || true)
-    done
-    while IFS= read -r p; do
-        [ -n "$p" ] && upstream_paths+=("$p")
-    done < <(echo "$tree_json" | jq -r \
-        '.tree[] | select(.type=="blob") | .path | select(startswith("skills/"))' \
-        2>/dev/null || true)
-
-    local upstream_path dest_path skill_name content
-    local -a synced_skill_names=()
-    for upstream_path in "${upstream_paths[@]}"; do
-        if [[ "$upstream_path" == rules/* ]]; then
-            dest_path=".claude/rules/synced/${upstream_path#rules/}"
-        else
-            dest_path=".claude/${upstream_path}"
-        fi
-        mkdir -p "$(dirname "$dest_path")"
-        content=$(curl -fsSL "${UPSTREAM_API}/contents/${upstream_path}" 2>/dev/null \
-            | jq -r '.content' 2>/dev/null | base64 -d 2>/dev/null) || {
-            warn "Failed to fetch: $upstream_path"
+    local ac src dest f
+    for ac in ${active_cats[@]+"${active_cats[@]}"}; do
+        # read_active_categories already refuses these; re-checked here because the name
+        # is about to be part of a path that is deleted and rewritten.
+        case "$ac" in ''|*[!A-Za-z0-9_-]*) continue ;; esac
+        src="$UPSTREAM_TMP/rules/$ac"
+        [ -d "$src" ] || continue
+        dest=".claude/rules/synced/$ac"
+        if ! replace_dir "$src" "$dest"; then
+            warn "Failed to install category '$ac' — leaving the current one in place."
             continue
-        }
-        printf '%s' "$content" > "$dest_path"
-        WRITTEN_FILES+=("$dest_path")
-        if [[ "$upstream_path" == skills/* ]]; then
-            skill_name=$(echo "$upstream_path" | cut -d/ -f2)
+        fi
+        while IFS= read -r f; do
+            WRITTEN_FILES+=("$dest/${f#"$src/"}")
+        done < <(find "$src" -type f | sort)
+    done
+
+    local -a synced_skill_names=()
+    local skill_dir skill_name skill_ok
+    for skill_dir in "$UPSTREAM_TMP"/skills/*/; do
+        [ -d "$skill_dir" ] || continue
+        skill_name=$(basename "$skill_dir")
+        dest=".claude/skills/$skill_name"
+        # Tracked in globals so an interrupt rolls the overlay back from the EXIT trap.
+        UPSTREAM_SKILL_DEST="$dest"
+        UPSTREAM_SKILL_CREATED=false; [ -e "$dest" ] || UPSTREAM_SKILL_CREATED=true
+        UPSTREAM_SKILL_FILES=(); UPSTREAM_SKILL_DIRS=()
+        skill_ok=true
+        while IFS= read -r f; do
+            if ! install_file "$f" "$dest/${f#"$skill_dir"}"; then
+                skill_ok=false
+                break
+            fi
+        done < <(find "$skill_dir" -type f | sort)
+        if [ "$skill_ok" = true ]; then
+            WRITTEN_FILES+=(${UPSTREAM_SKILL_FILES[@]+"${UPSTREAM_SKILL_FILES[@]}"})
             synced_skill_names+=("$skill_name")
+            # Disarm the rollback before discarding the backups: an interrupt in between
+            # then restores the local files instead of removing them with nothing to restore.
+            UPSTREAM_SKILL_DEST=""; UPSTREAM_SKILL_CREATED=false; UPSTREAM_SKILL_FILES=(); UPSTREAM_SKILL_DIRS=()
+            settle_backups drop
+        else
+            rollback_skill
+            warn "Failed to install skill '$skill_name' — skipped, not recorded in the manifest."
         fi
     done
+
+    cleanup_upstream_tmp
 
     if [ "${#synced_skill_names[@]}" -gt 0 ]; then
         write_skills_manifest "${synced_skill_names[@]}"
@@ -607,7 +805,8 @@ multi_repo_mode() {
 
     for repo in "${SELECTED_REPOS[@]}"; do
         (
-            cd "$start_dir/$repo"
+            trap cleanup_upstream_tmp EXIT
+            cd "$start_dir/$repo" || exit 1
             setup_project
         ) || FAILED_REPOS+=("$repo")
     done
