@@ -126,7 +126,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `rules/swift/analytics.md` | Firebase Analytics screen view tracking |
 | `rules/swift/assets.md` | `ImageResource` in SwiftUI — type-safe, non-optional asset loading |
 | `rules/swift/code-style.md` | Logger extension pattern, file headers, import order, naming, MARK member ordering, the `URL(string:)!` literal exception |
-| `rules/swift/concurrency.md` | `@Observable @MainActor` mandate, Combine only with justification, capture lists, no `NotificationCenter`, isolation discipline |
+| `rules/swift/concurrency.md` | `@Observable @MainActor` mandate, the primitive by job (superseded shapes banned, guarantees decide), capture lists, no `NotificationCenter`, isolation discipline |
 | `rules/swift/coredata.md` | `NSManagedObjectContext` queue confinement — every access inside `perform` |
 | `rules/swift/dates.md` | `FormatStyle` over `DateFormatter`, `en_US_POSIX` for machine formats |
 | `rules/swift/security.md` | Archive extraction — containment-guarded APIs, zip-slip prevention |
