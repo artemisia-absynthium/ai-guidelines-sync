@@ -122,48 +122,21 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 
 ## Rules
 
-| File | Covers |
-|------|--------|
-| `rules/swift/analytics.md` | Firebase Analytics screen view tracking |
-| `rules/swift/assets.md` | `ImageResource` in SwiftUI — type-safe, non-optional asset loading |
-| `rules/swift/code-style.md` | Logger extension pattern, file headers, import order, naming, MARK member ordering, the `URL(string:)!` literal exception |
-| `rules/swift/concurrency.md` | `@Observable @MainActor` mandate, the primitive by job (superseded shapes banned, guarantees decide), capture lists, no `NotificationCenter`, isolation discipline |
-| `rules/swift/coredata.md` | `NSManagedObjectContext` queue confinement — every access inside `perform` |
-| `rules/swift/dates.md` | `FormatStyle` over `DateFormatter`, `en_US_POSIX` for machine formats |
-| `rules/swift/security.md` | Archive extraction — containment-guarded APIs, zip-slip prevention |
-| `rules/swift/state-management.md` | `Loadable<T>` pattern, error surfacing, retry design |
-| `rules/swift/swiftui.md` | View structure, adaptive layouts, state ownership, previews, modal dismissal, in-app web |
-| `rules/swift/testing.md` | Swift Testing gotchas — `#expect(try …)` compile shapes, process-global fixtures, test doubles without protocols, bounded polls |
-| `rules/ios/assets.md` | `UIImage(resource:)` — type-safe UIKit asset loading (iOS 17+) |
-| `rules/ios/liquid-glass.md` | Liquid Glass (iOS 26+) — system vs own glass, suppress-then-own, verification ladder |
-| `rules/mac/affordances.md` | Menus, keyboard shortcuts, windows, native chrome |
-| `rules/visionos/realitykit.md` | RealityView lifecycle, entity rules, z-offset, attachments |
-| `rules/android/code-style.md` | No force non-null, `Result<T>` at boundaries, companion constants |
-| `rules/android/compose.md` | State management, lifecycle-aware collection, UI state coverage |
-| `rules/android/room.md` | Flow from DAOs, KSP, explicit migrations, schema export |
-| `rules/android/testing.md` | JUnit 4, Robolectric, MockK, Turbine for Flow assertions |
-| `rules/web/playwright.md` | Playwright test execution vs visual verification |
-| `rules/database/partial-unique-indexes.md` | Partial unique indexes — writes that transition rows into the WHERE-domain must absorb occupants in-transaction |
-| `rules/xcode/mcp-tools.md` | Where Xcode MCP is required (legacy-group file ops, diagnostics over `swift-lsp`) and its gotchas (tab id, staging, active destination) |
-| `rules/xcode/packages.md` | SPM only — no CocoaPods or Carthage |
-| `rules/xcode/schemes.md` | GUI rewrites clobber hand-edited schemes; Run args leaking into the test host |
-| `rules/xcode/test-destinations.md` | Run every supported platform; resolve destinations from the selected Xcode's SDK |
-| `rules/xcode/test-verification.md` | Judge runs by executed-test count from the xcresult — exit codes and parallel-runner stdout both lie |
-| `rules/xcode/ui-test-data-isolation.md` | UI-test launch flags redirect to ephemeral storage, never wipe in place — macOS tests run in the real container |
-| `rules/xcode/ui-test-hierarchy-portability.md` | Query by identifier at any element type; branch on the hierarchy, not the platform — element trees differ per platform |
-| `rules/xcode/warnings.md` | Zero-warning policy |
-| `rules/workflow/build-discipline.md` | Passing build is part of Done — errors *fixed* per `terminology.md`, blockers flagged, never worked around |
-| `rules/workflow/charter.md` | Per-task charter — the concerns that must stay true, held as an unscoped gitignored rule so they survive compaction and delegation |
-| `rules/workflow/code-style.md` | Pre-existing violations — `TECH-DEBT` annotation, never mirrored |
-| `rules/workflow/contributing.md` | Cross-project rule contribution — a one-line checkpoint at wrap-up; the lift is a proposal, pushed only on an explicit go |
-| `rules/workflow/docs-sync.md` | Mandatory `Docs:` report line with mechanical staleness triggers |
-| `rules/workflow/git-pull-first.md` | On shared branches only: fetch + fast-forward before the first edit when the last fetch is >1 h old |
-| `rules/workflow/plan-execution.md` | Durable plan files, unplanned events as divergences, path-independent changes (no Frankenstein), wire contracts, first vertical slice |
-| `rules/workflow/synced-rules.md` | Synced-directory layout — where to put local rules, how to opt out |
-| `rules/workflow/terminology.md` | Definitions other rules cite — fix vs workaround, the authority order of sources, done, unplanned event |
-| `rules/workflow/tool-fallback-discipline.md` | Unavailable ≠ broken — an erroring tool is diagnosed, never silently bypassed |
-| `rules/workflow/ui-state.md` | Empty and error states before the happy path, on every stack |
+| Category | Sync | Covers |
+|----------|------|--------|
+| `workflow` | always | How work is planned, built, tested, documented and contributed — charter, plan execution, build and docs discipline, falsifiable assertions, decisions-not-code-state docs, terminology, tool fallback, pull-first, UI states, `TECH-DEBT`, upstream contribution |
+| `swift` | opt-in | The language and Apple frameworks on any Swift target — concurrency, SwiftUI, Swift Testing, Core Data, dates, assets, archive security, logging and file layout |
+| `ios` | opt-in | iOS-only surfaces — UIKit asset loading, Liquid Glass |
+| `mac` | opt-in | macOS-only affordances — menus, keyboard shortcuts, windows, native chrome |
+| `visionos` | opt-in | RealityKit — RealityView lifecycle, entity rules, attachments |
+| `xcode` | opt-in | Toolchain and project — Xcode MCP usage, SPM only, schemes, test destinations, run verification from the xcresult, UI-test isolation and portability, zero warnings |
+| `android` | opt-in | Kotlin — code style, Compose state and lifecycle, Room, JUnit/Robolectric/MockK/Turbine testing |
+| `web` | opt-in | Playwright — test execution vs visual verification |
+| `database` | opt-in | Schema and transaction rules independent of the ORM — partial unique indexes |
 
+Each file's title states its rule — browse `rules/<category>/` for the catalog. This table stops
+at categories on purpose: a per-file list is the directory listing copied by hand, and it drifts
+(`rules/workflow/docs-record-decisions.md`).
 ---
 
 ## Skills
