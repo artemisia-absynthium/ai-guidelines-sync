@@ -1,7 +1,5 @@
 ---
 description: Judge a test run by its executed-test count from the xcresult — exit codes lie in both directions and the parallel runner's stdout mangles result lines
-paths:
-  - "**/*"
 ---
 
 # Test-Run Verification
