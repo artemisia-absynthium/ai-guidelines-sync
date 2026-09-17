@@ -1,10 +1,5 @@
 ---
-paths:
-  - "**/*.sql"
-  - "**/[Mm]igrations/**"
-  - "**/[Pp]ersistence/**"
-  - "**/*[Ss]chema*"
-  - "**/[Rr]epositor*/**"
+description: A partial unique index is violated by state transitions, not only by inserts — audit every write that can move a row into the index's WHERE-domain, and resolve occupants in the same transaction
 ---
 
 # Partial Unique Indexes — Domain Transitions Are Writes Too
