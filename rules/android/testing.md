@@ -1,6 +1,9 @@
 ---
 paths:
-  - "**/*.kt"
+  - "**/src/test/**"
+  - "**/src/androidTest/**"
+  - "**/*Test.kt"
+  - "**/*Tests.kt"
 ---
 
 # Android Testing Conventions

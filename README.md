@@ -129,7 +129,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 | `ios` | opt-in | iOS-only surfaces — UIKit asset loading, Liquid Glass |
 | `mac` | opt-in | macOS-only affordances — menus, keyboard shortcuts, windows, native chrome |
 | `visionos` | opt-in | RealityKit — RealityView lifecycle, entity rules, attachments |
-| `xcode` | opt-in | Toolchain and project — Xcode MCP usage, SPM only, schemes, test destinations, run verification from the xcresult, UI-test isolation and portability, zero warnings |
+| `xcode` | opt-in | Toolchain and project — Xcode MCP usage, SPM only, schemes, test destinations, run verification from the xcresult, UI-test isolation, portability and system prompts, zero warnings |
 | `android` | opt-in | Kotlin — code style, Compose state and lifecycle, Room, JUnit/Robolectric/MockK/Turbine testing |
 | `web` | opt-in | Playwright — test execution vs visual verification |
 | `database` | opt-in | Schema and transaction rules independent of the ORM — partial unique indexes |
