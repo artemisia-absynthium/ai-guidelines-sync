@@ -1,6 +1,6 @@
 ---
 name: planning-discipline
-description: Type-level design (SOLID/SRP), invariant-first planning, named precedents, and complexity budgets. Invoke while planning or designing any non-trivial feature — mandatory for stateful mechanisms (state machines, caches, sync/retry, lifecycles) — and when reviewing a design note before code exists.
+description: Type-level design (SOLID/SRP), invariant-first planning, named precedents, and complexity budgets. Invoke while planning or designing any non-trivial feature — mandatory for stateful mechanisms (state machines, caches, sync/retry, lifecycles) and for any plan touching a public or cross-module symbol — and when reviewing a design note before code exists.
 ---
 
 # Planning discipline — type-level design + invariant-first
@@ -86,6 +86,56 @@ together — with no version gate; adding one is ceremony. Judge per contract, n
 a multi-consumer library path serving deployed consumers keeps its compat path even while the
 app around it is pre-release, and a cross-process wire format is a real contract before it
 ships.
+
+## Consumer contract, not just signature
+
+Applies to any plan that changes the *implementation* of a symbol reachable outside the
+file being edited — public API, a shared module's internal type another module calls,
+anything consumed by a sibling repo through a package or library reference. Trigger is
+reachability, not visibility keyword: a `public`/`open` marker is the common case, not
+the definition.
+
+A signature staying identical is evidence the code still **compiles** against callers, not
+that it still **behaves** the way they depend on. A synchronous method's callers can rely on
+completion-by-return (silence-on-return, a written value visible immediately, an ordering
+relative to whatever the caller does next); replacing the implementation with something
+async/fire-and-forget/eventually-consistent breaks that silently while type-checking clean.
+Same trap for a strict invariant loosened to an optimistic one, or an exception replaced by
+a logged-and-swallowed failure: none of these show up in a signature diff.
+
+**The plan states, as its own section, not folded into prose:**
+
+```
+Consumers: <symbol> — <call site path:line, found by grepping the whole reachable
+  workspace: the module, sibling modules in the same repo, and any sibling repos the
+  project documents as consumers of this code> — depends on <the specific behavioral
+  property: ordering / synchronous completion / thrown vs. silent failure / timing
+  relative to X> — <preserved | broken, and how the plan changes to preserve it>
+```
+
+One line per real call site, not per file. `Consumers: none found — <symbol> is
+private/internal with no cross-module reachability` is the explicit negative — a valid
+entry, never an omission. A plan with a changed public/cross-module symbol and no
+`Consumers:` section is not approvable, the same way a missing doc-update line makes a
+completion report incomplete (`docs-sync.md`) — the check is mechanical because
+open-ended judgment ("did I consider what depends on this?") fires unreliably under
+plan-approval momentum, exactly like an unwritten doc update does.
+
+This is the general form of the per-consumer walk `Invariant-first` below already
+requires for universal claims inside stateful code; here the trigger is the symbol's
+reachability, not whether the code containing it is stateful.
+
+**Why:** a redesign of a shared component moved a synchronous, public method to a
+fire-and-forget async implementation. Every invariant a prior review round had
+explicitly named (internal ordering, isolation) was satisfied — but a sibling module,
+untouched by the diff, depended on that method's old synchronous-completion contract: a
+caller sequenced a second, unrelated operation immediately after it, assuming the first
+had already taken effect by the time it returned. The call site was one grep away. It
+was never run, because the plan's invariant checklist only required a per-consumer walk
+for "stateful code," and nothing forced the same check for a public-surface behavior
+change outside that frame. "Still compiles against existing call sites" was mistaken for
+"still behaves how those call sites need" — the two were never distinguished at plan
+time.
 
 ## Invariant-first (stateful code)
 
