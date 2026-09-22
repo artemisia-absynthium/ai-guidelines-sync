@@ -1,15 +1,54 @@
 ---
 name: planning-discipline
-description: Type-level design (SOLID/SRP), invariant-first planning, named precedents, and complexity budgets. Invoke while planning or designing any non-trivial feature — mandatory for stateful mechanisms (state machines, caches, sync/retry, lifecycles) and for any plan touching a public or cross-module symbol — and when reviewing a design note before code exists.
+description: Four questions before any design exists (the problem without type names; what each existing piece is for; old against new at the caller's boundary; alternatives including replace-or-delete), then type-level design (SOLID/SRP), invariant-first planning, named precedents, and complexity budgets. Invoke while planning or designing any non-trivial feature — mandatory for stateful mechanisms (state machines, caches, sync/retry, lifecycles) and for any plan touching a public or cross-module symbol — and when reviewing a design note before code exists.
 ---
 
-# Planning discipline — type-level design + invariant-first
+# Planning discipline — four questions, then type-level design + invariant-first
 
-Two disciplines, applied together at plan time. Type-level design says who owns what;
-invariant-first says what must stay true and who enforces it. Neither substitutes for the
-other. A post-hoc design review that fails is a plan that failed earlier: by then the
-refactor is too large to fold into the same change and gets postponed, and postponed
+Four questions decide what gets generated; two disciplines then govern the candidate
+chosen. Type-level design says who owns what; invariant-first says what must stay true
+and who enforces it. A design review that fails is a plan that failed earlier: by then
+the refactor is too large to fold into the same change and gets postponed, and postponed
 refactors compound.
+
+## Before any design — four questions
+
+Every rule below this section evaluates a design that already exists. A rule positioned
+after the design can only filter the candidates that were generated; it cannot add the
+one that was never considered, and it will be satisfied post hoc by whatever was built.
+These four are answered first, in writing, before a type or a mechanism is named. They
+are the part of this skill that decides what gets generated.
+
+1. **The problem, in one sentence, with no type names.** "Fix `FooManager`" produces fixes
+   to `FooManager`. "A short sound must play without the main-thread warning, and
+   `FooManager` is one existing implementation of that" makes replacing `FooManager`
+   grammatically possible. Every rule read afterwards inherits the framing.
+
+2. **What each existing piece you would touch is *for* — one line each.** Existing code
+   does not earn preservation by existing; it earns it with evidence — a caller that
+   depends on it, a failure it prevents. "Inherited, purpose unknown" is a valid line and
+   a visible non-answer: the piece is not a requirement, and a mechanism built to keep it
+   safe is the cost of not having questioned it. This does not license rewriting what is
+   not in the way (`code-style.md` governs that); the trigger is *cost* — the moment
+   keeping a piece forces a mechanism, the piece has to justify itself, and usually cannot.
+
+3. **The first idea, then old against new at the caller's boundary.** Take the obvious
+   idea. Then read the code it replaces as the list of guarantees a caller could observe —
+   what had happened by the time the call returned, in what order things occurred, where a
+   failure surfaced — and check each against the new code. Every difference is
+   *acceptable* or a *dealbreaker*. A dealbreaker kills the idea; it does not become a
+   requirement to engineer around. This comparison takes less time than reading the old
+   line, and it is skipped because right after writing something the reflex is to confirm
+   it works, not to diff it against what was there.
+
+4. **Alternatives, simplest first — and one of them deletes or replaces.** Simple is a
+   judgment about how much a reader must hold in their head, not a count of anything; a
+   count would be gamed. Simple usually costs someone something — a deprecation, a
+   migration, a behaviour change — and that cost is weighed, not forbidden. A constraint no
+   owner stated and no caller depends on is a preference, and preferences yield to
+   simplicity. The design that preserves everything pays for it in mechanism.
+
+Only after these does the rest of this skill apply, to the candidate chosen.
 
 ## Type-level design (SOLID from the start)
 
@@ -46,6 +85,13 @@ primitive — and take its known solution, adapted, stating what was adapted and
 mechanism with no named precedent is presumed invented, and invention requires
 justification: what was searched, and why nothing fits. Novelty is a cost — an invented
 mechanism has no literature documenting its failure modes.
+
+The known solution is the smallest one that has the property. A mechanism whose only
+customer is another mechanism introduced by the same change — a token that makes a retry
+safe to cancel, a barrier that gives an `await` something to wait for — has no precedent
+because it is not a solution to a problem; it is the price of not having removed the
+thing it protects. The customer for anything added must be outside the diff: a caller by
+name, or a failure by name.
 
 Calibration: the demand is the *mapping*, not the ceremony. "This is a plain loop / a
 switch over a closed set — no precedent needed" is a valid mapping for trivial mechanism;
@@ -117,25 +163,15 @@ One line per real call site, not per file. `Consumers: none found — <symbol> i
 private/internal with no cross-module reachability` is the explicit negative — a valid
 entry, never an omission. A plan with a changed public/cross-module symbol and no
 `Consumers:` section is not approvable, the same way a missing doc-update line makes a
-completion report incomplete (`docs-sync.md`) — the check is mechanical because
-open-ended judgment ("did I consider what depends on this?") fires unreliably under
-plan-approval momentum, exactly like an unwritten doc update does.
+completion report incomplete (`docs-sync.md`): the check is mechanical because open-ended
+judgment fires unreliably under plan-approval momentum. It is the cross-module form of
+question 3 above — old guarantees against new, at every boundary a caller can see — and
+of the per-consumer walk `Invariant-first` requires for universal claims.
 
-This is the general form of the per-consumer walk `Invariant-first` below already
-requires for universal claims inside stateful code; here the trigger is the symbol's
-reachability, not whether the code containing it is stateful.
-
-**Why:** a redesign of a shared component moved a synchronous, public method to a
-fire-and-forget async implementation. Every invariant a prior review round had
-explicitly named (internal ordering, isolation) was satisfied — but a sibling module,
-untouched by the diff, depended on that method's old synchronous-completion contract: a
-caller sequenced a second, unrelated operation immediately after it, assuming the first
-had already taken effect by the time it returned. The call site was one grep away. It
-was never run, because the plan's invariant checklist only required a per-consumer walk
-for "stateful code," and nothing forced the same check for a public-surface behavior
-change outside that frame. "Still compiles against existing call sites" was mistaken for
-"still behaves how those call sites need" — the two were never distinguished at plan
-time.
+**Why:** a public synchronous method was reimplemented as fire-and-forget. It compiled
+against every caller; a caller in a sibling module, one grep away, depended on the old
+method having taken effect by the time it returned. "Still compiles" was mistaken for
+"still behaves" because nothing forced the two to be distinguished at plan time.
 
 ## Invariant-first (stateful code)
 
