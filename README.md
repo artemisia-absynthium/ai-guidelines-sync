@@ -143,6 +143,7 @@ at categories on purpose: a per-file list is the directory listing copied by han
 
 | Skill | What it does |
 |-------|-------------|
+| `create-pr` | Opens a pull request from the current branch — base detected, assignee and reviewer set, body filled from the repo's PR template or a conventional default, describing the result against the base |
 | `design-review-lens` | Full design-review checklist (SOLID, Clean Architecture, GRASP, Clean Code, coupling laws, guardrails) for reviewing a diff or branch |
 | `lift-to-shared-rules` | Generalizes a pattern found in a project and proposes it upstream — commits locally, pushes or opens the PR only on an explicit go |
 | `swift-concurrency-review` | Dedicated Swift concurrency review pass — reentrancy, continuations, cancellation, ordering, `@unchecked Sendable` |
