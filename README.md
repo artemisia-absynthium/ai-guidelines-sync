@@ -124,7 +124,7 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 
 | Category | Sync | Covers |
 |----------|------|--------|
-| `workflow` | always | How work is planned, built, tested, documented and contributed — charter, plan execution, build and docs discipline, falsifiable assertions, decisions-not-code-state docs, terminology, tool fallback, pull-first, UI states, `TECH-DEBT`, upstream contribution |
+| `workflow` | always | How work is planned, built, tested, documented and contributed — charter, plan execution, build and docs discipline, falsifiable assertions, decisions-not-code-state docs, terminology, tool fallback, pull-first, UI states, `TECH-DEBT`, side-work kill criterion, upstream contribution |
 | `swift` | opt-in | The language and Apple frameworks on any Swift target — concurrency, SwiftUI, Swift Testing, Core Data, dates, assets, archive security, logging and file layout |
 | `ios` | opt-in | iOS-only surfaces — UIKit asset loading, Liquid Glass |
 | `mac` | opt-in | macOS-only affordances — menus, keyboard shortcuts, windows, native chrome |
