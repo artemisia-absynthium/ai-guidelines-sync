@@ -231,4 +231,15 @@ runs:
         git add .claude/
         git diff --staged --quiet \
           || git commit -m "chore: sync Claude Code rules and skills"
+        # In a repo that tracks files with Git LFS, `git push` runs git-lfs's pre-push hook, which
+        # opens SSH sessions of its own before it knows there is nothing to upload: a probe for the
+        # pure-SSH transfer protocol (`git-lfs-transfer`, which GitHub does not speak, so it only
+        # costs time) and, to verify file locks against the LFS API, `git-lfs-authenticate` — a
+        # second client, separate from the one that just fetched, and a transient refusal there
+        # fails the whole push. This job only ever commits text under `.claude/`, so neither
+        # round-trip protects anything: switch both off for this checkout. The upload path stays
+        # intact, so an LFS-tracked file that ever lands under `.claude/` is still uploaded, and a
+        # real LFS outage still fails loudly. Not `--no-verify`, which would skip every pre-push hook.
+        git config lfs.locksverify false
+        git config lfs.sshtransfer never
         git push
