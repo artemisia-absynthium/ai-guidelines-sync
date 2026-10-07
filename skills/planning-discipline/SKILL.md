@@ -18,7 +18,10 @@ The four questions are answered against the code as it is, so two things come fi
 **Explore.** Delegate the reading to subagents that return the files that matter — the ones a
 design would touch, their callers, the in-house precedent — and read every file they name in
 the main thread before answering question 2. A summary of a file is not the file: "what each
-existing piece is for" is answered from its source, not from a report.
+existing piece is for" is answered from its source, not from a report. Explorers and other
+output-heavy delegates (builds, test counts, documentation checks) run on `sonnet`, Claude Code's
+alias "for daily coding tasks" — reading and summarising is that, and it is the cheapest context
+sink; the main thread keeps the session's model, and a fork always inherits it.
 
 **Ask.** List every ambiguity, edge case, integration point, scope boundary and underspecified
 behaviour as concrete questions, and wait for the answers before any design exists: a question

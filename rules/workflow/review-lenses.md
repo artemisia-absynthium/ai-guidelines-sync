@@ -36,5 +36,7 @@ code are observations too (`review-before-close.md`). This is the review-side fo
 
 At the design note, one fresh-context reviewer walks every lens marked for the note in one
 brief; a per-lens fan-out runs when the owner asks for one. At the diff, each specialised
-reviewer takes its lens, in parallel, one brief each. A tool that edits code (a simplifier) is
+reviewer takes its lens, in parallel, one brief each. Reviewers at both moments run on `opus`,
+Claude Code's alias "for complex reasoning tasks" (its own reviewer example pins it), set per
+invocation in the brief, which overrides a subagent definition's pin. A tool that edits code (a simplifier) is
 not a reviewer: it runs, if at all, as a fix batch after the pass, under the same review.
