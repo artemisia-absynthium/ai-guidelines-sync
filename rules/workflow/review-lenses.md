@@ -38,5 +38,6 @@ At the design note, one fresh-context reviewer walks every lens marked for the n
 brief; a per-lens fan-out runs when the owner asks for one. At the diff, each specialised
 reviewer takes its lens, in parallel, one brief each. Reviewers at both moments run on `opus`,
 Claude Code's alias "for complex reasoning tasks" (its own reviewer example pins it), set per
-invocation in the brief, which overrides a subagent definition's pin. A tool that edits code (a simplifier) is
-not a reviewer: it runs, if at all, as a fix batch after the pass, under the same review.
+invocation in the brief, which overrides a subagent definition's pin. A tool that edits code is not a reviewer:
+the simplification pass (`code-simplifier` skill) runs after the task's verification and before
+the review pass, so the pass certifies the simplified diff.
