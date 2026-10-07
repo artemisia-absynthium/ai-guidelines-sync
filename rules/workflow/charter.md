@@ -29,7 +29,8 @@ dies with the task plan, never in the repo's project plan.
   to the project plan's decision log, and the plan's only residue is the commit.
 - **Updated** at every divergence, in the same pause that produces the diagnosis
   (see `plan-execution.md`).
-- **Re-read** before every commit, and copied into every brief handed to a subagent.
+- **Re-read** before every commit, and copied into every brief handed to a subagent. Every
+  return is read against the lines the brief carried (`delegation.md`).
 - **Checked** at task close, after the review pass (`review-before-close.md`): every "must
   stay true" line answered with evidence, never asserted. *Done* means the charter is satisfied
   (see `terminology.md`). A check that comes
