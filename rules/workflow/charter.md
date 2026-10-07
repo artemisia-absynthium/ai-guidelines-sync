@@ -21,6 +21,12 @@ dies with the task plan, never in the repo's project plan.
   is in context now (a rule file created mid-session is otherwise loaded only at the next launch
   or compaction), and linked as the task plan's first line
   (`Charter: .claude/rules/charter.local.md`) so reading or executing the plan forces reading it.
+- **The task plan follows the charter.** It is written in plan mode right after the charter, as a
+  machine-local file whose first line links the charter (`plan-execution.md`), and it carries the
+  tier line, the four questions' answers and the design note's location. At every divergence it
+  is amended in the same pause that updates the charter's `Now:`. At task close it is discarded
+  after the charter is checked and drained: a decision that outlives the task has by then moved
+  to the project plan's decision log, and the plan's only residue is the commit.
 - **Updated** at every divergence, in the same pause that produces the diagnosis
   (see `plan-execution.md`).
 - **Re-read** before every commit, and copied into every brief handed to a subagent.
