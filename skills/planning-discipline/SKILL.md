@@ -11,6 +11,26 @@ and who enforces it. A design review that fails is a plan that failed earlier: b
 the refactor is too large to fold into the same change and gets postponed, and postponed
 refactors compound.
 
+## Before the four questions — explore, then ask
+
+The four questions are answered against the code as it is, so two things come first.
+
+**Explore.** Delegate the reading to subagents that return the files that matter — the ones a
+design would touch, their callers, the in-house precedent — and read every file they name in
+the main thread before answering question 2. A summary of a file is not the file: "what each
+existing piece is for" is answered from its source, not from a report.
+
+**Ask.** List every ambiguity, edge case, integration point, scope boundary and underspecified
+behaviour as concrete questions, and wait for the answers before any design exists: a question
+not asked becomes an assumption the design inherits, and nothing downstream can surface it.
+Skip the obvious ones; dig into the hard parts the owner may not have considered. When the
+answer is "whatever you think is best", state the recommendation and get it confirmed. This
+step is not skipped for a non-trivial change; for a change describable in one sentence, the
+questions are that sentence.
+
+**Then implement only on the owner's explicit approval of the plan.** Plan mode enforces this by
+construction; in any other mode this line is the gate.
+
 ## Before any design — four questions
 
 Every rule below this section evaluates a design that already exists. A rule positioned

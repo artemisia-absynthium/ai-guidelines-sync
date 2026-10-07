@@ -56,7 +56,6 @@ The `makeContent` closure executes a single time. Consequences:
 
 - Root views receive state via `@Environment(StateType.self)` — pass from the scene with `.environment(state)`
 - Mark views `@MainActor` when they access app or feature state
-- Async closures inside views: `Task { @MainActor [weak self] in ... }`
 
 ## Previews
 
