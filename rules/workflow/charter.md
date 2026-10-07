@@ -10,7 +10,8 @@ delegation. Invariants do this for the codebase; the charter does it for the wor
 
 ## Where
 
-`.claude/rules/charter.local.md` in the repository, gitignored (`.claude/rules/*.local.md`).
+`.claude/rules/charter.local.md` in the repository. The repository's `.gitignore` carries
+`.claude/rules/*.local.md`; add the line when it is missing, before the first charter is written.
 It has **no frontmatter**: an unscoped rule is re-injected from disk after every compaction; a
 `paths:`-scoped one is not. The charter is **task-tier** (see `terminology.md`): it lives and
 dies with the task plan, never in the repo's project plan.

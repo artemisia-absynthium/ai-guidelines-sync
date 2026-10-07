@@ -49,8 +49,7 @@ For every finding, one written line before touching code:
   reasonable, which is exactly why it must not be the default. Go back to the four
   questions at the top of `planning-discipline`. The answer to the review is then a
   design, not a list of fixes, and the reply says so.
-- **Several "no"s** → the approach is dead, full stop, and the review has told you so
-  four times in a row. Read it that way.
+- **Several "no"s** → the approach is dead, full stop. Read the review that way.
 
 A reviewer's *suggested* remedy is one candidate, not a requirement — the four questions
 apply to it too. "Do X, or scope down and open a follow-up" is two options, not an order.
