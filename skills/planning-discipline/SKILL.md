@@ -220,8 +220,9 @@ from the property it must maintain. Only process forces derivation.
   per-path or per-consumer walk in the plan — or the qualifier that survives one. An
   unqualified claim is a promise to every future reader.
 - Design-note review precedes implementation: review the note + plan in a fresh context
-  BEFORE writing code. Findings cost sentences there; the same findings post-diff cost
-  review rounds.
+  BEFORE writing code, walking every lens `workflow/review-lenses.md` marks for the note —
+  the same lenses the diff gets later. Findings cost sentences there; the same findings
+  post-diff cost review rounds.
 
 **TDD — the property test precedes the mechanism:**
 - Contract-shaped behavior gets its PROPERTY TEST first: enumerate the event alphabet
