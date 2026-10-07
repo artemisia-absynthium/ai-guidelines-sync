@@ -236,6 +236,11 @@ from the property it must maintain. Only process forces derivation.
   zero that short-circuits the arithmetic, two values equal by accident) is a lying test.
   State why each magic value sits where it does relative to the property's boundary. The
   write-time rule is `assertions-must-be-falsifiable.md`.
+- Error-path census: one test per error case with an exact-case assertion — a type-only
+  "throws" check is semi-vacuous — and one per empty, boundary and absent state, read off the
+  error type and the input domain mechanically.
+- A behaviour change flips the test first (expectation to red), then the code (to green);
+  a test is never adjusted after the fact to match new code.
 
 **One authority per invariant.** Every invariant has exactly ONE authoritative statement —
 the branch's design note while work is in flight, or the subsystem contract table once it
