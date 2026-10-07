@@ -25,27 +25,16 @@ A project can mix synchronized folders and legacy groups — check with `XcodeLS
 
 ## Code intelligence
 
-On Xcode projects, query diagnostics and symbols through Xcode MCP
-(`XcodeRefreshCodeIssuesInFile`, `XcodeGrep`, and on Xcode 26 also `XcodeListNavigatorIssues`
-and `DocumentationSearch` — Xcode 27's server no longer exposes those two), never through the
-`swift-lsp` plugin / `LSP` tool. Standalone
-`sourcekit-lsp` has no Xcode-project backend: without an `xcode-build-server` bridge it has
-no compile flags for Xcode targets and produces hallucinated findings (e.g. "missing import"
-for a symbol that exists in another target), and even bridged its index is build-pinned
-while Xcode's hosted SourceKit indexes live. Keep `swift-lsp` disabled on these projects.
+On Xcode projects, query diagnostics and symbols through the Xcode MCP's own tools; the
+server's tool list is the authority on which exist.
 
 ## Gotchas
 
-- **Workspace approval and identifier (Xcode 27+)**: the server refuses every tool until
-  `XcodeOpenWorkspace` has been called with the absolute `.xcworkspace`/`.xcodeproj` path — that
-  call is what prompts the user to approve the agent for the project (once per project) and it
-  returns a `workspaceIdentifier`. Pass that value as `workspaceIdentifier` to every other tool,
-  including the tools whose schema still advertises only `tabIdentifier` (`BuildProject`,
-  `GetBuildLog`, `XcodeListSchemes`, `XcodeListRunDestinations`, `GetTargetBuildSettings`): the
-  schema is stale, the server rejects `tabIdentifier` and names the open workspaces in the error.
-  `XcodeListWindows` is gone; `xcrun mcp-server status` shows approval state and open workspaces.
-  Never hardcode the identifier — it is minted per open. (Xcode 26: every tool took a
-  `tabIdentifier`, discovered with `XcodeListWindows`, dependent on window open order.)
+- **Workspace approval**: the server refuses every tool until the workspace has been opened
+  through the MCP with the absolute `.xcworkspace`/`.xcodeproj` path — that call is what prompts
+  the user to approve the agent for the project (once per project). Which identifier the other
+  tools then take, and under which parameter name, is in their schemas — read them, never a
+  rule file: the server changes them between Xcode releases and a copy here rots.
 - **No scheme parameter — the active scheme slips.** `BuildProject` and `RunAllTests` build the
   *active scheme*, and there is no way to name one per call. Xcode resets the active scheme to the
   first scheme alphabetically (often a package dependency's scheme) whenever the shared

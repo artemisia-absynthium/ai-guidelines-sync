@@ -66,6 +66,6 @@ Previews must supply all required environments:
 #Preview {
     MyFeatureView()
         .environment(MyFeatureState())
-        .environment(AppState.shared)
+        .environment(AppState())
 }
 ```

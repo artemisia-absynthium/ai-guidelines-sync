@@ -28,7 +28,7 @@ Do not use `gh api` to check push permission — it reads the permission field f
 
 Determine the category and file:
 
-- Known categories: `swift`, `ios`, `visionos`, `xcode`, `mac`, `android`, `web`, `workflow`
+- Known categories: the directories under `<repo>/rules/` — list them, never recall them
 - Map the rule to the most specific applicable category
 - Target file: `<repo>/rules/<category>/<topic>.md`
 - If no existing file fits within a category, create a new one with a descriptive name
