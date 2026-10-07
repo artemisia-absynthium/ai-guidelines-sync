@@ -61,7 +61,8 @@ Rules sync writes only to `.claude/rules/synced/` — a managed directory. Skill
 `.claude/skills/<name>/` alongside local project skills; the manifest tracks upstream removals
 without touching local skills. Subscriber-local rules live directly in `.claude/rules/` (no subdirectory).
 `setup.sh` also installs a `PreToolUse` guard hook in `.claude/settings.json` that blocks edits to
-`synced/` and redirects to `.claude/rules/`.
+`synced/` and redirects to `.claude/rules/`, and one `permissions.deny` rule that keeps the
+code-rewriting plugin subagent out of the review pass.
 
 ## Lifting rules cross-project
 

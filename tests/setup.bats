@@ -183,6 +183,38 @@ teardown() {
   [ "$count" = "2" ]
 }
 
+@test "merge_guard_hook: the deny rule is added beside the guard" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_guard_hook
+  deny=$(jq -c '.permissions.deny' "$TEST_DIR/.claude/settings.json")
+  [ "$deny" = '["Agent(pr-review-toolkit:code-simplifier)"]' ]
+}
+
+@test "merge_guard_hook: existing deny rules are kept and the owned rule is never duplicated" {
+  mkdir -p "$TEST_DIR/.claude"
+  echo '{"permissions":{"allow":["Bash(ls)"],"deny":["Bash(sudo:*)","Agent(pr-review-toolkit:code-simplifier)"]}}' > "$TEST_DIR/.claude/settings.json"
+  cd "$TEST_DIR"
+  merge_guard_hook
+  deny=$(jq -c '.permissions.deny' "$TEST_DIR/.claude/settings.json")
+  [ "$deny" = '["Bash(sudo:*)","Agent(pr-review-toolkit:code-simplifier)"]' ]
+  allow=$(jq -c '.permissions.allow' "$TEST_DIR/.claude/settings.json")
+  [ "$allow" = '["Bash(ls)"]' ]
+}
+
+@test "merge_guard_hook: a current guard without the deny rule is completed, not skipped" {
+  cd "$TEST_DIR"; current_guard_settings
+  jq 'del(.permissions)' ".claude/settings.json" > "$TEST_DIR/nodeny" && mv "$TEST_DIR/nodeny" ".claude/settings.json"
+  merge_guard_hook
+  [ "${#SKIPPED_FILES[@]}" -eq 0 ]
+  [[ "${WRITTEN_FILES[0]}" == *"deny rule added"* ]]
+  [[ "${WRITTEN_FILES[0]}" != *"guard hook added"* ]]
+  [ "$(guard_count .claude/settings.json)" = "1" ]
+  deny=$(jq -c '.permissions.deny' ".claude/settings.json")
+  [ "$deny" = '["Agent(pr-review-toolkit:code-simplifier)"]' ]
+}
+
 @test "merge_guard_hook: skips merge when hook is already present" {
   mkdir -p "$TEST_DIR/.claude"
   echo '{}' > "$TEST_DIR/.claude/settings.json"
@@ -857,6 +889,8 @@ current_guard_settings() {
 }
 guard_count() { jq '[.hooks.PreToolUse[]?.hooks[]?.command // "" | select(test("tool_input.file_path"))] | length' "$1"; }
 root_without_hooks() { jq -c -S 'del(.hooks)' "$1"; }
+# The root after a merge is the original root without hooks plus the owned deny rule.
+root_with_owned_deny() { jq -c -S 'del(.hooks) | .permissions = ((.permissions // {}) | .deny = ((.deny // []) + ["Agent(pr-review-toolkit:code-simplifier)"]))' "$1"; }
 hooks_without_pretooluse() { jq -c -S '.hooks | if type == "object" then del(.PreToolUse) else {} end' "$1"; }
 
 FIXTURE_BARE_ENTRY='{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":"file=$(jq -r .file_path) rules/synced"}]}'
@@ -882,7 +916,7 @@ assert_primed_ok() {   # $1 = path of the original copy
   status=0
   merge_guard_hook > "$TEST_DIR/out" || status=$?
   assert_primed_ok "$TEST_DIR/orig"
-  [ "$(root_without_hooks .claude/settings.json)" = "$(root_without_hooks "$TEST_DIR/orig")" ]
+  [ "$(root_without_hooks .claude/settings.json)" = "$(root_with_owned_deny "$TEST_DIR/orig")" ]
   [ "$(jq -r .matcher .claude/settings.json)" = "Edit|Write|MultiEdit" ]
 }
 
@@ -893,7 +927,7 @@ assert_primed_ok() {   # $1 = path of the original copy
   status=0
   merge_guard_hook > "$TEST_DIR/out" || status=$?
   assert_primed_ok "$TEST_DIR/orig"
-  [ "$(root_without_hooks .claude/settings.json)" = "$(root_without_hooks "$TEST_DIR/orig")" ]
+  [ "$(root_without_hooks .claude/settings.json)" = "$(root_with_owned_deny "$TEST_DIR/orig")" ]
   [ "$(jq -r '.permissions.allow[0]' .claude/settings.json)" = "Bash" ]
 }
 
@@ -943,6 +977,9 @@ assert_primed_ok() {   # $1 = path of the original copy
 @test "settings_json_usable: a bare hook entry at the root is not usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_BARE_ENTRY"; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
 @test "settings_json_usable: hooks as an array is not usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_PERMISSIONS_HOOKS_ARRAY"; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
 @test "settings_json_usable: PreToolUse as an object is not usable" { cd "$TEST_DIR"; write_settings "$FIXTURE_PRETOOLUSE_OBJECT"; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
+@test "settings_json_usable: permissions as an array is not usable" { cd "$TEST_DIR"; write_settings '{"permissions":["Bash"]}'; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
+@test "settings_json_usable: a non-string deny rule is not usable" { cd "$TEST_DIR"; write_settings '{"permissions":{"deny":["Bash(x)",7]}}'; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
+@test "settings_json_usable: string deny rules are usable" { cd "$TEST_DIR"; write_settings '{"permissions":{"deny":["Bash(x)"]}}'; run settings_json_usable .claude/settings.json; [ "$status" -eq 0 ]; }
 @test "settings_json_usable: a null root is not usable" { cd "$TEST_DIR"; write_settings 'null'; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
 @test "settings_json_usable: invalid JSON is not usable" { cd "$TEST_DIR"; write_settings '{"hooks":'; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
 @test "settings_json_usable: a 0-byte file is not usable" { cd "$TEST_DIR"; write_settings ''; run settings_json_usable .claude/settings.json; [ "$status" -eq 1 ]; }
@@ -960,7 +997,7 @@ assert_primed_ok() {   # $1 = path of the original copy
 @test "project_settings_document: identity on every usable document" {
   cd "$TEST_DIR"
   local doc
-  for doc in '{}' '{"hooks":null}' '{"hooks":{"PostToolUse":[]}}' "$FIXTURE_FOREIGN_ENTRIES" "$FIXTURE_OUTDATED_GUARD"; do
+  for doc in '{}' '{"hooks":null}' '{"hooks":{"PostToolUse":[]}}' '{"permissions":{"deny":["Bash(x)"]}}' "$FIXTURE_FOREIGN_ENTRIES" "$FIXTURE_OUTDATED_GUARD"; do
     write_settings "$doc"
     [ "$(project_settings_document .claude/settings.json | jq -c -S .)" = "$(jq -c -S . .claude/settings.json)" ] \
       || { echo "fixture $doc: projection is not the identity"; false; }
@@ -970,7 +1007,7 @@ assert_primed_ok() {   # $1 = path of the original copy
 @test "project_settings_document: every unusable document projects to a usable, idempotent one" {
   cd "$TEST_DIR"
   local doc projected
-  for doc in "$FIXTURE_BARE_ENTRY" "$FIXTURE_PERMISSIONS_HOOKS_ARRAY" "$FIXTURE_PRETOOLUSE_OBJECT" 'null' '[1]' '{"hooks":{"PreToolUse":[{"matcher":"ok"},"junk",{"matcher":"bad","hooks":[{"command":7}]}]}}'; do
+  for doc in "$FIXTURE_BARE_ENTRY" "$FIXTURE_PERMISSIONS_HOOKS_ARRAY" "$FIXTURE_PRETOOLUSE_OBJECT" 'null' '[1]' '{"hooks":{"PreToolUse":[{"matcher":"ok"},"junk",{"matcher":"bad","hooks":[{"command":7}]}]}}' '{"permissions":[1]}' '{"permissions":{"deny":["ok",7],"allow":["Bash"]}}'; do
     write_settings "$doc"
     projected=$(project_settings_document .claude/settings.json)
     printf '%s' "$projected" > "$TEST_DIR/projected"

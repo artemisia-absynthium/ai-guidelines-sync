@@ -701,13 +701,20 @@ sync_upstream() {
 # objects whose command is null or a string. One set of definitions, shared by the
 # predicate, the projection and the merge so they cannot drift (a $VAR inside a
 # single-quoted jq program is a jq compile error, so sharing goes through a def prefix).
-# owned_entry is the one statement of what the script owns in the file (README, ownership
-# table): the PreToolUse entry whose command mentions rules/synced.
+# owned_entry and owned_deny_rule are the statement of what the script owns in the file
+# (README, ownership table): the PreToolUse entry whose command mentions rules/synced, and
+# one permissions.deny rule — the plugin subagent that rewrites code unasked is not a reviewer
+# (rules/workflow/review-lenses.md), so no subscriber session can launch it. permissions
+# follows the same rule: null or an object; permissions.deny null or an array of strings.
 JQ_SETTINGS_DEFS='
 def entry_ok: (type == "object" and ((.hooks|type) == "null" or ((.hooks|type) == "array" and all(.hooks[]; type == "object" and ((.command|type) == "null" or (.command|type) == "string")))));
 def root_hooks_ok: (.hooks|type) == "null" or (.hooks|type) == "object";
 def root_pretooluse_ok: (.hooks.PreToolUse|type) == "null" or (.hooks.PreToolUse|type) == "array";
 def owned_entry: (.hooks // []) | map((.command // "") | test("rules/synced")) | any;
+def owned_deny_rule: "Agent(pr-review-toolkit:code-simplifier)";
+def root_permissions_ok: (.permissions|type) == "null" or (.permissions|type) == "object";
+def root_deny_ok: (.permissions|type) != "object" or (.permissions.deny|type) == "null" or ((.permissions.deny|type) == "array" and all(.permissions.deny[]; type == "string"));
+def deny_present: (.permissions|type) == "object" and (.permissions.deny|type) == "array" and any(.permissions.deny[]; . == owned_deny_rule);
 '
 
 # Usage: settings_json_usable [<file>]   (stdin when no file is given)
@@ -715,7 +722,8 @@ def owned_entry: (.hooks // []) | map((.command // "") | test("rules/synced")) |
 settings_json_usable() {
     jq -e -s "$JQ_SETTINGS_DEFS"'length == 1 and (.[0]
         | type == "object" and root_hooks_ok and root_pretooluse_ok
-        and all(.hooks.PreToolUse // [] | .[]; entry_ok))' ${1:+"$1"} >/dev/null 2>&1 || return 1
+        and all(.hooks.PreToolUse // [] | .[]; entry_ok)
+        and root_permissions_ok and root_deny_ok)' ${1:+"$1"} >/dev/null 2>&1 || return 1
 }
 
 # Usage: project_settings_document [<file>]   (stdin when no file is given)
@@ -730,7 +738,11 @@ project_settings_document() {
         | (if root_hooks_ok then . else del(.hooks) end)
         | (if (.hooks.PreToolUse|type) == "array" then .hooks.PreToolUse |= map(select(entry_ok))
            elif root_pretooluse_ok then .
-           else del(.hooks.PreToolUse) end)'
+           else del(.hooks.PreToolUse) end)
+        | (if root_permissions_ok then . else del(.permissions) end)
+        | (if (.permissions|type) == "object" and (.permissions.deny|type) == "array" then .permissions.deny |= map(select(type == "string"))
+           elif root_deny_ok then .
+           else del(.permissions.deny) end)'
 }
 
 # Usage: ensure_settings_file <file>
@@ -810,10 +822,13 @@ merge_guard_hook() {
     # tool_input fix read .file_path, which the PreToolUse payload never carries, so they
     # never fired — a re-run of this script must repair them, not skip them. A primed
     # document is never skipped: it was rewritten, so it is written and reported as such.
-    if [ "$primed" = false ] && printf '%s\n' "$doc" | jq -e --arg cmd "$guard_cmd" \
+    local guard_present=false deny_present=false
+    if printf '%s\n' "$doc" | jq -e --arg cmd "$guard_cmd" \
         '[.hooks.PreToolUse // [] | .[] | (.hooks // [])[] | (.command // "")] | any(. == $cmd)' \
-        >/dev/null 2>&1; then
-        SKIPPED_FILES+=(".claude/settings.json (guard hook already present)")
+        >/dev/null 2>&1; then guard_present=true; fi
+    if printf '%s\n' "$doc" | jq -e "$JQ_SETTINGS_DEFS"'deny_present' >/dev/null 2>&1; then deny_present=true; fi
+    if [ "$primed" = false ] && [ "$guard_present" = true ] && [ "$deny_present" = true ]; then
+        SKIPPED_FILES+=(".claude/settings.json (guard hook and deny rule already present)")
         return 0
     fi
 
@@ -831,12 +846,16 @@ merge_guard_hook() {
     if cp -p "$settings_file" "$tmp" \
         && printf '%s\n' "$doc" | jq -e --argjson entry "$guard_entry" "$JQ_SETTINGS_DEFS"'
             .hooks = (.hooks // {})
-            | .hooks.PreToolUse = ([.hooks.PreToolUse // [] | .[] | select(owned_entry | not)] + [$entry])' > "$tmp" \
+            | .hooks.PreToolUse = ([.hooks.PreToolUse // [] | .[] | select(owned_entry | not)] + [$entry])
+            | .permissions = (.permissions // {})
+            | .permissions.deny = ((.permissions.deny // []) | if any(.[]; . == owned_deny_rule) then . else . + [owned_deny_rule] end)' > "$tmp" \
         && mv "$tmp" "$settings_file"; then
         UPSTREAM_STAGE=""
-        local what="guard hook added"
+        local what=""
+        if [ "$guard_present" = false ]; then what="guard hook added"; fi
         if [ "$outdated" -gt 0 ]; then what="guard hook updated"; fi
-        if [ "$primed" = true ]; then what="settings primed, $what"; fi
+        if [ "$deny_present" = false ]; then what="${what:+$what, }deny rule added"; fi
+        if [ "$primed" = true ]; then what="settings primed${what:+, $what}"; fi
         WRITTEN_FILES+=(".claude/settings.json ($what)")
     else
         rm -f "$tmp"
