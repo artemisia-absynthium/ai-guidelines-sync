@@ -15,11 +15,13 @@ lands work on the wrong branch.
 
 An unpushed commit is freely editable (squash, reword, drop); a pushed one is shared history.
 Pushing eagerly converts trivial local history editing into force-push requests that protected
-branches refuse. Commit locally as work progresses; push once — when the changeset is final,
-when the owner asks, or when a workflow step needs the remote (PR creation, a remote CI job).
-Never chain commit and push by default. Review rounds are local: fix, re-run locally; on a
-clean re-run, squash the round-fix commits, push once, open the PR — pushing per round litters
-the remote branch history.
+branches refuse. Commit locally as work progresses; push once, when the changeset is final and
+the owner says so. A step that needs the remote — PR creation, a remote CI job — is where the
+workflow waits for that word, not an authorization in itself: green builds and passing suites
+cannot see rendered UI or real behaviour, so the owner's own check is the last verification
+before anything leaves the machine. Never chain commit and push by default. Review rounds are
+local: fix, re-run locally; on a clean re-run, squash the round-fix commits, then push once and
+open the PR on the owner's word — pushing per round litters the remote branch history.
 
 ## History rewrites are gated by branch kind, not banned
 
