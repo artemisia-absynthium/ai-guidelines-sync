@@ -67,5 +67,20 @@ finding, and one in a passage the review read is named for the author to remove 
 The only count that stays is the one that was never prose: an input to a check, kept where the
 check reads it (above).
 
+## A count is never evidence — PR bodies, commit messages and reviews included
+
+The `path:line` exemption for conversation does not extend to counts. A PR body, a commit message
+and a review comment carry no totals, no baselines, no occurrence or line counts: a verification
+line says that the test-count check is green on the final head's result bundle, never what the
+number was, and the baseline it was judged against lives only where the check reads it.
+
+On the reading side a reviewer ignores every count it meets — it never reconciles one, disputes
+one, or reasons from one. A finding stands on the defect: a test that cannot finish, a row the
+code cannot hold, a contract two documents state differently. A figure found in prose is a
+one-line removal item in the same pass, never a thread. Rationale: an argument over a count is an
+argument about the state of the text, which the check settles mechanically and a review cannot;
+every exchange spent on it is taken from the defect, and the number is stale before the exchange
+ends.
+
 A multi-line doc comment defending a non-obvious invariant is either a missing test or a
 required justification; `assertions-must-be-falsifiable.md` says which.

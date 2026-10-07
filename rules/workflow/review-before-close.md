@@ -17,7 +17,7 @@ stack applies), one brief each, in parallel. Each brief carries the charter line
 and states:
 
 - **Read-only.** The reviewer never builds, runs tests, or uses build/test tools. Verification
-  already happened; the brief carries its results (executed-test count, zero-warning build). A
+  already happened; the brief carries its verdicts (the test-count check green, zero-warning build). A
   reviewer that re-runs the suite duplicates minutes of work and can wedge on an environment
   quirk nobody is watching.
 - **Scope.** Defects the diff introduced or touched decide the verdict; pre-existing defects in
