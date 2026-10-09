@@ -30,7 +30,7 @@ symbol** — a symbol is found by the compiler and by grep when it moves; a line
   write the *reason* instead — a decision does not rot, a count does.
 - **Would a rename or a moved line break it?** Then it names a location, not a role.
 
-A baseline a run is judged against — the `totalTestCount` of `xcode/test-verification.md` —
+A baseline a run is judged against — the executed-test count a suite is expected to reach —
 is an input to a check, not prose: it lives where the check reads it (a CI variable, an
 assertion), never in a document.
 

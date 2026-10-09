@@ -13,7 +13,7 @@ that applies only once says so below.
 | Design — responsibilities, boundaries, coupling, precedent, over-engineering | yes | yes | `design-review-lens` skill |
 | Types — encapsulation, invariants expressed in the type, lifetimes of its state | yes | yes | the type-design reviewer; `planning-discipline` type-level section |
 | Invariants and state ownership — each property named with its enforcement point | yes | yes, as conformance to the note | `planning-discipline` invariant-first; the design lens's conformance check |
-| Concurrency — isolation, state across suspension, cancellation, ordering | yes: who owns what, on which isolation | yes | the stack's concurrency review (Swift: `swift-concurrency-review`) |
+| Concurrency — isolation, state across suspension, cancellation, ordering | yes: who owns what, on which isolation | yes | the stack's concurrency review |
 | Error handling — every failure surfaces somewhere named, no silent fallback | yes: the error boundaries the note draws | yes | the silent-failure reviewer |
 | Omission — null, empty, zero, huge, concurrent and error paths | yes | yes | the brief |
 | Tests — property test first, error-path census, falsifiable assertions | yes: the test derivation is part of the plan | yes: coverage of what landed | the test reviewer; `assertions-must-be-falsifiable.md` |
