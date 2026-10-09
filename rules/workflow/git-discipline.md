@@ -21,7 +21,11 @@ workflow waits for that word, not an authorization in itself: green builds and p
 cannot see rendered UI or real behaviour, so the owner's own check is the last verification
 before anything leaves the machine. Never chain commit and push by default. Review rounds are
 local: fix, re-run locally; on a clean re-run, squash the round-fix commits, then push once and
-open the PR on the owner's word — pushing per round litters the remote branch history.
+open the PR on the owner's word — pushing per round litters the remote branch history. Once a
+PR is open, a received review is answered through `respond-to-pr-review`: the owner's approval
+of its response draft is the word for that round's push, given in advance for exactly that draft
+and void on any divergence, and in that draft the owner decides per remedy which ones their own
+check must see before the push.
 
 ## History rewrites are gated by branch kind, not banned
 
