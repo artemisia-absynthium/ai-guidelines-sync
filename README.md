@@ -124,12 +124,12 @@ The `workflow` category is always synced — do not add it to `rules-sync.txt`.
 
 | Category | Sync | Covers |
 |----------|------|--------|
-| `workflow` | always | How work is planned, built, tested, reviewed, documented and contributed — charter, plan execution, review before close, build and docs discipline, falsifiable assertions, decisions-not-code-state docs, terminology, tool fallback, pull-first, UI states, `TECH-DEBT`, side-work kill criterion, upstream contribution |
-| `swift` | opt-in | The language and Apple frameworks on any Swift target — concurrency, SwiftUI, Swift Testing, Core Data, dates, assets, archive security, logging and file layout |
+| `workflow` | always | How work is planned, built, tested, reviewed, documented and contributed — charter, plan execution, review before close, build and docs discipline, falsifiable assertions, decisions-not-code-state docs, terminology, tool fallback, pull-first, UI states, `TECH-DEBT`, side-work kill criterion, zero warnings and justified lint suppression, upstream contribution |
+| `swift` | opt-in | The language and Apple frameworks on any Swift target — concurrency, SwiftUI, Swift Testing, Core Data, dates, assets, archive security, logging, SwiftLint and file layout |
 | `ios` | opt-in | iOS-only surfaces — UIKit asset loading, Liquid Glass |
 | `mac` | opt-in | macOS-only affordances — menus, keyboard shortcuts, windows, native chrome |
 | `visionos` | opt-in | RealityKit — RealityView lifecycle, entity rules, attachments |
-| `xcode` | opt-in | Toolchain and project — Xcode MCP usage, SPM only, environments as build configurations, schemes, test destinations, run verification from the xcresult, UI-test isolation, portability and system prompts, zero warnings |
+| `xcode` | opt-in | Toolchain and project — Xcode MCP usage, SPM only, environments as build configurations, schemes, test destinations, run verification from the xcresult, UI-test isolation, portability and system prompts |
 | `android` | opt-in | Kotlin — code style, Compose state and lifecycle, Room, JUnit/Robolectric/MockK/Turbine testing |
 | `web` | opt-in | Playwright — test execution vs visual verification |
 | `database` | opt-in | Schema and transaction rules independent of the ORM — partial unique indexes |
