@@ -53,6 +53,7 @@ Each file's title states its rule; browse `rules/<category>/` for the catalog.
 | `swift-concurrency-review` | The Swift concurrency checklist — on request |
 | `code-simplifier` | Simplifies the code a task just changed, on request, without changing what it does |
 | `planning-discipline` | Four questions before any design, type-level design, invariant-first planning — for changes that do not fit in one sentence |
+| `readme-drafting` | Writes a README as the maintainer addressing its reader — consumer of a library, contributor to an application — and nothing the reader does not act on |
 | `lift-to-shared-rules` | Generalises a pattern from your project and proposes it here |
 
 ## Choosing categories — `.claude/rules-sync.txt`
