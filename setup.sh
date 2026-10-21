@@ -702,9 +702,9 @@ sync_upstream() {
 # predicate, the projection and the merge so they cannot drift (a $VAR inside a
 # single-quoted jq program is a jq compile error, so sharing goes through a def prefix).
 # owned_entry and owned_deny_rule are the statement of what the script owns in the file
-# (README, ownership table): the PreToolUse entry whose command mentions rules/synced, and
+# (.claude/rules/sync-contract.md, ownership table): the PreToolUse entry whose command mentions rules/synced, and
 # one permissions.deny rule — the plugin subagent that rewrites code unasked is not a reviewer
-# (rules/workflow/review-lenses.md), so no subscriber session can launch it. permissions
+# (rules/workflow/review.md), so no subscriber session can launch it. permissions
 # follows the same rule: null or an object; permissions.deny null or an array of strings.
 JQ_SETTINGS_DEFS='
 def entry_ok: (type == "object" and ((.hooks|type) == "null" or ((.hooks|type) == "array" and all(.hooks[]; type == "object" and ((.command|type) == "null" or (.command|type) == "string")))));
