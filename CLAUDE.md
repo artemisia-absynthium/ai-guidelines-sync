@@ -55,6 +55,11 @@ never need updating. To change sync logic, commit here.
 One category per line. Comment out a line to explicitly exclude it — it won't be re-added by
 auto-detection. The action auto-adds newly detected categories on the next sync unless commented out.
 
+### Ownership contract
+
+Every sync-managed path has its owner and deletion story in `.claude/rules/sync-contract.md`;
+no path joins the sync without a row there first.
+
 ### Design invariant
 
 Rules sync writes only to `.claude/rules/synced/` — a managed directory. Skills sync writes to
