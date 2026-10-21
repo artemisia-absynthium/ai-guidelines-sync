@@ -35,7 +35,7 @@ suspend fun fetchProduct(id: String): Result<Product> = runCatching {
 suspend fun fetchProduct(id: String): Product = api.getProduct(id)
 ```
 
-Callers use `onSuccess` / `onFailure` / `fold` — they never catch exceptions from a method that already returns `Result<T>`.
+Callers use `onSuccess` / `onFailure` / `fold` — they never catch exceptions from a method that already returns `Result<T>`. An empty `onFailure`, or a `getOrNull()` with no handling of the `null`, discards the failure: allowed only where it cannot reach the user and a log line would say nothing — expected, or outside our control — with a comment at the site saying which.
 
 ## Constants in companion objects
 
