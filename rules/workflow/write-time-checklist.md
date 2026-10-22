@@ -1,5 +1,5 @@
 ---
-description: What reviewers keep finding, stated as write-time rules — one copy of any logic, bounded per-update work, invariants with an enforcement point, value edges, failures that surface, measured platform claims, falsifiable tests, the convention over the legacy file, role-and-symbol references
+description: What reviewers keep finding, stated as write-time rules — one copy of any logic, bounded per-update work, invariants with an enforcement point, value edges, failures that surface, measured platform claims, falsifiable tests, the convention over the legacy file, role-and-symbol references, comments only for what the code cannot say
 ---
 
 # Write it right the first time
@@ -30,3 +30,7 @@ language-specific lines (`swift/write-time-checklist.md` for Swift).
   the project's stated convention; a file still on the old one is not the template.
 - **Refer by role and symbol**, never by position, and never count in prose: a count is stale at
   the next edit, and the list is the count.
+- **A comment says what the code cannot.** A comment exists only for what a reader cannot learn
+  from the code, at the site or by following its references: a public symbol's contract for its
+  callers, or the reason behind a choice someone would otherwise undo, with its source when the
+  reason is external.
