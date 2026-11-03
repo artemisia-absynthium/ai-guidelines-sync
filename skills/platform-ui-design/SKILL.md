@@ -21,11 +21,10 @@ The rule is `workflow/platform-ui.md`. This is how to meet it: two roles, as on 
 - **Developer: the main thread, by default.** It already holds the code context, the invariants
   and the task's charter; a developer subagent would receive them as a brief that drops the one
   fact that matters. A separate developer agent is the exception, when the main thread does not
-  hold the context either (the delegation rule decides).
+  hold the context either.
 - **Owner: chooses** between annotated options. Neither role picks for them.
 
-The designer proposes and never decides: every decision stays with the main thread and the owner,
-as the delegation rule requires. What the designer adds is options the main thread would not have
+The designer proposes and never decides: every decision stays with the main thread and the owner. What the designer adds is options the main thread would not have
 generated.
 
 ## The workflow
