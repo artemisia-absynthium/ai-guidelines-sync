@@ -79,8 +79,23 @@ them as RCP 3 behaviour.
   change to the project's store without a new `.reality` ships the old content.
 - **Size is a repository decision.** Committed whole, as Apple does, one project is hundreds of MB
   (Apple's sample: a 715 MB bundle, `core.lib/` 88 MB, and a 172 MB `.reality`). Whether those
-  blobs go to LFS is the repository's policy, not Apple's guidance; if they do, most
-  `*.tm_buffers/` entries are named `<uuid>.<hex>` with no media extension, so extension patterns
-  (`*.png`, `*.usdc`) miss them.
+  blobs go to LFS is the repository's policy, not Apple's guidance. If they do:
+  - Track the binaries by folder, not extension: most `*.tm_buffers/` entries are named
+    `<uuid>.<hex>` with no media extension, so extension patterns (`*.png`, `*.usdc`) miss them.
+  - Lead the pattern with `**/`. A pattern containing a slash is anchored to the directory of its
+    `.gitattributes`, so `*.tm_buffers/**` matches only a bundle at that level and misses every
+    buffer below it — measured with `git check-attr`:
+
+    ```
+    **/*.tm_buffers/** filter=lfs diff=lfs merge=lfs -text
+    **/*.reality filter=lfs diff=lfs merge=lfs -text
+    ```
+
+  - Keep the `tm_*` text files (`project.rcp`, `*.tm_entity`, `*.tm_material`, `*.tm_meta`,
+    `settings.tm_usd`) in plain git: an LFS file cannot be merged as text, and RCP 3's merge tool
+    exists for these.
+  - Blobs already committed move only by a history rewrite: `git lfs migrate import` with the same
+    patterns in `--include`, scoped to the topic branch with `--include-ref` and an
+    `--exclude-ref` on the remote integration branch, so shared history is left alone.
 - **Exclude nothing from the bundle on assumption.** Apple commits it whole, and which store files
   a fresh clone can do without is not documented.
