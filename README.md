@@ -35,7 +35,7 @@ is refreshed.
 | `swift` | opt-in | The language and Apple frameworks on any Swift target — concurrency, SwiftUI, Swift Testing, Core Data, logging, SwiftLint, file layout, the Swift lines of the write-time checklist |
 | `ios` | opt-in | iOS-only surfaces |
 | `mac` | opt-in | macOS-only affordances — menus, shortcuts, windows |
-| `visionos` | opt-in | RealityKit — RealityView lifecycle, entities, attachments |
+| `visionos` | opt-in | RealityKit — RealityView lifecycle, entities, attachments, Reality Composer Pro projects |
 | `xcode` | opt-in | Toolchain and project — the Xcode MCP, SPM, build configurations, schemes, test destinations, run verification |
 | `android` | opt-in | Kotlin — code style, Compose, Room, testing |
 | `web` | opt-in | Playwright |
