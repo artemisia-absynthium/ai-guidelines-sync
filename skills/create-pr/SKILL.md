@@ -120,6 +120,11 @@ BODY
 )"
 ```
 
+When `<base>` is another open PR's branch, this PR builds on it: link it into that stack right after
+creating it — `gh stack link <bottom> … <this PR>`, or `gh stack link <stack number> <this PR>` to
+append to an existing stack (`workflow/git-discipline.md` § On GitHub, pull requests that build on
+each other are a stack).
+
 ## 8. Return the PR URL to the user
 
 With it, one line of what ran before the PR — build, tests, `/code-review` (or "not run"), a
